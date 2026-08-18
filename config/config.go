@@ -10,6 +10,7 @@ import (
 // KeyBindings defines keyboard shortcuts for various actions
 type KeyBindings struct {
 	CycleColorMode string `toml:"cycle_color_mode"`
+	DebugGrid      string `toml:"debug_grid"`
 	Quit           string `toml:"quit"`
 }
 
@@ -39,6 +40,7 @@ func DefaultConfig() Config {
 	return Config{
 		KeyBindings: KeyBindings{
 			CycleColorMode: "c",
+			DebugGrid:      "d",
 			Quit:           "q",
 		},
 		Boids: BoidsConfig{

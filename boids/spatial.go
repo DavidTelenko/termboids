@@ -57,19 +57,19 @@ func (g *SpatialGrid) Insert(boid *Boid) {
 	}
 
 	key := cellY*g.cols + cellX
-	
+
 	// Pre-allocate slice with reasonable capacity if not exists
 	if g.cells[key] == nil {
 		g.cells[key] = make([]*Boid, 0, 16)
 	}
-	
+
 	g.cells[key] = append(g.cells[key], boid)
 }
 
 // QueryRadius returns all boids within a given radius of a position
 func (g *SpatialGrid) QueryRadius(pos Vector2D, radius float64) []*Boid {
 	radiusSquared := radius * radius
-	
+
 	// Reuse the result pool
 	g.resultPool = g.resultPool[:0]
 

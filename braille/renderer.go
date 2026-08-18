@@ -93,6 +93,11 @@ func (c *Canvas) Clear() {
 
 // DrawLine draws a line from (x0, y0) to (x1, y1) using Bresenham's algorithm
 func (c *Canvas) DrawLine(x0, y0, x1, y1 int) {
+	c.DrawLineWithColor(x0, y0, x1, y1, ColorWhite)
+}
+
+// DrawLineWithColor draws a line from (x0, y0) to (x1, y1) with a specific color
+func (c *Canvas) DrawLineWithColor(x0, y0, x1, y1 int, color Color) {
 	dx := abs(x1 - x0)
 	dy := abs(y1 - y0)
 	sx := 1
@@ -106,7 +111,7 @@ func (c *Canvas) DrawLine(x0, y0, x1, y1 int) {
 	err := dx - dy
 
 	for {
-		c.Set(x0, y0)
+		c.SetWithColor(x0, y0, color)
 		if x0 == x1 && y0 == y1 {
 			break
 		}

@@ -6,6 +6,9 @@
 # Available modes: None (white), Force-based, Distance-based
 cycle_color_mode = "c"
 
+# Press 'd' or 'D' to toggle debug spatial grid visualization
+debug_grid = "d"
+
 # Press 'q' to quit the application
 quit = "q"
 
@@ -26,7 +29,7 @@ separation_radius = 5.0
 alignment_radius = 5.0
 
 # Cohesion radius - distance for moving toward group center
-cohesion_radius = 45.0
+cohesion_radius = 1000.0
 
 # Separation weight - strength of avoidance behavior
 separation_weight = 1.8

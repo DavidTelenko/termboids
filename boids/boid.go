@@ -11,6 +11,7 @@ type Drawable interface {
 	SetWithColor(x, y int, color braille.Color)
 	FillCircle(cx, cy, r int)
 	FillCircleWithColor(cx, cy, r int, color braille.Color)
+	DrawLineWithColor(x0, y0, x1, y1 int, color braille.Color)
 }
 
 // Boid represents a single flocking entity
@@ -42,6 +43,7 @@ type Config struct {
 	RandomWeight     float64
 	RenderRadius     int
 	ColorMode        ColorMode
+	ShowSpatialGrid  bool
 }
 
 // DefaultConfig returns the default boid simulation parameters
@@ -89,12 +91,12 @@ func NewSimulation(numBoids, width, height int, config Config) *Simulation {
 		}
 	}
 
-	// Use cell size of the largest interaction radius
+	// Use cell size of the smallest interaction radius
 	cellSize := int(config.CohesionRadius)
-	if config.AlignmentRadius > float64(cellSize) {
+	if config.AlignmentRadius < float64(cellSize) {
 		cellSize = int(config.AlignmentRadius)
 	}
-	if config.SeparationRadius > float64(cellSize) {
+	if config.SeparationRadius < float64(cellSize) {
 		cellSize = int(config.SeparationRadius)
 	}
 
@@ -373,6 +375,11 @@ func (s *Simulation) colorByDistance() {
 
 // Draw renders all boids to the given canvas
 func (s *Simulation) Draw(canvas Drawable) {
+	// Draw spatial grid if debug mode is enabled
+	if s.Config.ShowSpatialGrid {
+		s.drawSpatialGrid(canvas)
+	}
+
 	for _, boid := range s.Boids {
 		x := int(boid.Position.X)
 		y := int(boid.Position.Y)
@@ -385,5 +392,21 @@ func (s *Simulation) Draw(canvas Drawable) {
 			// Adjust radius: user's "radius 2" becomes actual radius 1
 			canvas.FillCircleWithColor(x, y, s.Config.RenderRadius-1, boid.Color)
 		}
+	}
+}
+
+// drawSpatialGrid renders the spatial subdivision grid for debugging
+func (s *Simulation) drawSpatialGrid(canvas Drawable) {
+	cellSize := s.grid.cellSize
+	gridColor := braille.ColorCyan
+
+	// Draw vertical lines
+	for x := cellSize; x < s.Width; x += cellSize {
+		canvas.DrawLineWithColor(x, 0, x, s.Height-1, gridColor)
+	}
+
+	// Draw horizontal lines
+	for y := cellSize; y < s.Height; y += cellSize {
+		canvas.DrawLineWithColor(0, y, s.Width-1, y, gridColor)
 	}
 }

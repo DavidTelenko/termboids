@@ -117,6 +117,11 @@ func main() {
 					simulation.Config.ColorMode = boids.ColorModeNone
 				}
 			}
+
+			// Check for debug grid toggle key
+			if keyStr == strings.ToLower(cfg.KeyBindings.DebugGrid) {
+				simulation.Config.ShowSpatialGrid = !simulation.Config.ShowSpatialGrid
+			}
 		}
 
 		// Calculate delta time in seconds
@@ -164,6 +169,11 @@ func main() {
 		default:
 			fmt.Fprintf(&buffer, "FPS: %.1f | Boids: %d | Mode: None",
 				fps, cfg.Boids.NumBoids)
+		}
+
+		// Add debug grid indicator if enabled
+		if simulation.Config.ShowSpatialGrid {
+			fmt.Fprintf(&buffer, " | \033[36mDEBUG: Grid ON\033[0m")
 		}
 
 		// Write entire frame at once
