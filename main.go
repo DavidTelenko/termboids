@@ -16,8 +16,6 @@ import (
 	"golang.org/x/term"
 )
 
-const numBoids = 1000
-
 func main() {
 	// Load configuration
 	cfg, err := config.LoadOrDefault()
@@ -40,20 +38,21 @@ func main() {
 	width := termWidth * 2
 	height := (termHeight - 1) * 4
 
-	// Create boid simulation with default config
+	// Create boid simulation from config
 	boidConfig := boids.Config{
-		MaxSpeed:         100.0,
-		MaxForce:         80.0,
-		SeparationRadius: 50.0,
-		AlignmentRadius:  45.0,
-		CohesionRadius:   45.0,
-		SeparationWeight: 1.8,
-		AlignmentWeight:  1.2,
-		CohesionWeight:   2.0,
-		RenderRadius:     1,
+		MaxSpeed:         cfg.Boids.MaxSpeed,
+		MaxForce:         cfg.Boids.MaxForce,
+		SeparationRadius: cfg.Boids.SeparationRadius,
+		AlignmentRadius:  cfg.Boids.AlignmentRadius,
+		CohesionRadius:   cfg.Boids.CohesionRadius,
+		SeparationWeight: cfg.Boids.SeparationWeight,
+		AlignmentWeight:  cfg.Boids.AlignmentWeight,
+		CohesionWeight:   cfg.Boids.CohesionWeight,
+		RandomWeight:     cfg.Boids.RandomWeight,
+		RenderRadius:     cfg.Boids.RenderRadius,
 		ColorMode:        boids.ColorModeDistance, // Start with distance-based coloring
 	}
-	simulation := boids.NewSimulation(numBoids, width, height, boidConfig)
+	simulation := boids.NewSimulation(cfg.Boids.NumBoids, width, height, boidConfig)
 
 	canvas := braille.NewCanvas(width, height)
 
@@ -158,13 +157,13 @@ func main() {
 		switch simulation.Config.ColorMode {
 		case boids.ColorModeDistance:
 			fmt.Fprintf(&buffer, "FPS: %.1f | Boids: %d | Mode: Distance | \033[31mCenter\033[0m \033[33mClose\033[0m \033[32mFar\033[0m \033[37mOutskirts\033[0m",
-				fps, numBoids)
+				fps, cfg.Boids.NumBoids)
 		case boids.ColorModeForce:
 			fmt.Fprintf(&buffer, "FPS: %.1f | Boids: %d | Mode: Force | \033[31mSeparation\033[0m \033[32mAlignment\033[0m \033[34mCohesion\033[0m \033[37mBalanced\033[0m",
-				fps, numBoids)
+				fps, cfg.Boids.NumBoids)
 		default:
 			fmt.Fprintf(&buffer, "FPS: %.1f | Boids: %d | Mode: None",
-				fps, numBoids)
+				fps, cfg.Boids.NumBoids)
 		}
 
 		// Write entire frame at once

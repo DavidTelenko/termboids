@@ -39,6 +39,7 @@ type Config struct {
 	SeparationWeight float64
 	AlignmentWeight  float64
 	CohesionWeight   float64
+	RandomWeight     float64
 	RenderRadius     int
 	ColorMode        ColorMode
 }
@@ -48,15 +49,16 @@ type Config struct {
 // Note: speeds are in pixels per second (frame-rate independent)
 func DefaultConfig() Config {
 	return Config{
-		MaxSpeed:         50.0, // pixels per second - fast movement
-		MaxForce:         80.0, // acceleration per second - responsive turning
-		SeparationRadius: 5.0,  // Small radius = tight packing
-		AlignmentRadius:  35.0, // Medium radius = group coordination
-		CohesionRadius:   45.0, // Larger radius = strong clustering
-		SeparationWeight: 1.8,  // Strong separation to prevent overlap
-		AlignmentWeight:  1.2,  // Strong alignment for coordinated movement
-		CohesionWeight:   1.0,  // Moderate cohesion for clustering
-		RenderRadius:     1,    // Single dot
+		MaxSpeed:         50.0,              // pixels per second - fast movement
+		MaxForce:         80.0,              // acceleration per second - responsive turning
+		SeparationRadius: 5.0,               // Small radius = tight packing
+		AlignmentRadius:  35.0,              // Medium radius = group coordination
+		CohesionRadius:   45.0,              // Larger radius = strong clustering
+		SeparationWeight: 1.8,               // Strong separation to prevent overlap
+		AlignmentWeight:  1.2,               // Strong alignment for coordinated movement
+		CohesionWeight:   1.0,               // Moderate cohesion for clustering
+		RandomWeight:     0.15,              // Small random force to prevent stabilization
+		RenderRadius:     1,                 // Single dot
 		ColorMode:        ColorModeDistance, // Default to distance-based coloring
 	}
 }
@@ -210,10 +212,21 @@ func (s *Simulation) Update(deltaTime float64) {
 			acceleration = acceleration.Add(cohForce)
 		}
 
+		// Add random force to prevent stabilization
+		// Apply random impulses with weighted probability
+		if s.Config.RandomWeight > 0 && rand.Float64() < 0.1 { // 10% chance per frame
+			randomForce := Vector2D{
+				X: rand.Float64()*2 - 1,
+				Y: rand.Float64()*2 - 1,
+			}.Normalize().Scale(s.Config.MaxForce * s.Config.RandomWeight)
+			acceleration = acceleration.Add(randomForce)
+		}
+
 		// Determine color based on selected mode
-		if s.Config.ColorMode == ColorModeForce {
+		switch s.Config.ColorMode {
+		case ColorModeForce:
 			s.colorByForce(boid, sepMagnitude, alignMagnitude, cohMagnitude)
-		} else if s.Config.ColorMode == ColorModeNone {
+		case ColorModeNone:
 			boid.Color = braille.ColorWhite
 		}
 		// Distance-based coloring is done after all positions are updated
@@ -295,7 +308,7 @@ func (s *Simulation) colorByDistance() {
 	// Use exponential moving average with strong smoothing
 	smoothingFactor := 0.05 // Lower = more smoothing
 	s.smoothedMaxDist = s.smoothedMaxDist*(1-smoothingFactor) + maxDist*smoothingFactor
-	
+
 	// Prevent division by zero
 	if s.smoothedMaxDist < 1.0 {
 		s.smoothedMaxDist = 1.0
@@ -305,7 +318,7 @@ func (s *Simulation) colorByDistance() {
 	for _, boid := range s.Boids {
 		dist := boid.Position.Distance(center)
 		normalizedDist := dist / s.smoothedMaxDist // 0.0 = center, 1.0 = outskirts
-		
+
 		// Clamp to [0, 1] range
 		if normalizedDist > 1.0 {
 			normalizedDist = 1.0
@@ -314,17 +327,17 @@ func (s *Simulation) colorByDistance() {
 		// Use smooth probabilistic color assignment for fluid transitions
 		// Create smooth gradient: Red (center) -> Yellow -> Green -> White (outskirts)
 		// Use velocity and fine-grained position hash to reduce visible patterns
-		
+
 		// Calculate a stable hash with finer granularity and better distribution
 		// Mix position with velocity for more randomness
-		hashVal := (int(boid.Position.X*13.7) + int(boid.Position.Y*17.3)*2531 + 
-		           int(boid.Velocity.X*100)*97 + int(boid.Velocity.Y*100)*127) % 1000
+		hashVal := (int(boid.Position.X*13.7) + int(boid.Position.Y*17.3)*2531 +
+			int(boid.Velocity.X*100)*97 + int(boid.Velocity.Y*100)*127) % 1000
 		threshold := float64(hashVal) / 1000.0
-		
+
 		// Define color transition points with smooth probabilistic blending
 		if normalizedDist < 0.2 {
 			// Very center - mostly red with gradual yellow blend
-			redProbability := 1.0 - (normalizedDist / 0.2) * 0.3
+			redProbability := 1.0 - (normalizedDist/0.2)*0.3
 			if threshold < redProbability {
 				boid.Color = braille.ColorRed
 			} else {

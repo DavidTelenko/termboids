@@ -1,5 +1,5 @@
 # Termboids Configuration File
-# This file configures keyboard shortcuts and other settings
+# This file configures keyboard shortcuts and boid simulation parameters
 
 [keybindings]
 # Press 'c' or 'C' to cycle through color modes
@@ -8,3 +8,38 @@ cycle_color_mode = "c"
 
 # Press 'q' to quit the application
 quit = "q"
+
+[boids]
+# Number of boids in the simulation
+num_boids = 1000
+
+# Maximum speed (pixels per second)
+max_speed = 50.0
+
+# Maximum force/acceleration (pixels per second squared)
+max_force = 80.0
+
+# Separation radius - distance at which boids avoid each other
+separation_radius = 5.0
+
+# Alignment radius - distance for matching neighbor velocities
+alignment_radius = 5.0
+
+# Cohesion radius - distance for moving toward group center
+cohesion_radius = 45.0
+
+# Separation weight - strength of avoidance behavior
+separation_weight = 1.8
+
+# Alignment weight - strength of velocity matching
+alignment_weight = 1.2
+
+# Cohesion weight - strength of grouping behavior
+cohesion_weight = 1.0
+
+# Random weight - strength of random forces (prevents stabilization)
+# Set to 0 to disable random behavior
+random_weight = 5.15
+
+# Render radius - size of each boid (1 = single pixel)
+render_radius = 1
