@@ -1,42 +1,68 @@
 package braille
 
 import (
+	"fmt"
 	"strings"
 )
 
 // Braille Unicode patterns start at U+2800
 // Each braille character can represent 8 dots (2x4 grid)
 // Dot positions:
-//  1  4
-//  2  5
-//  3  6
-//  7  8
+//
+//	1  4
+//	2  5
+//	3  6
+//	7  8
 const brailleBase = 0x2800
+
+// Color represents an ANSI color code
+type Color int
+
+const (
+	ColorReset   Color = 0
+	ColorRed     Color = 31
+	ColorGreen   Color = 32
+	ColorYellow  Color = 33
+	ColorBlue    Color = 34
+	ColorMagenta Color = 35
+	ColorCyan    Color = 36
+	ColorWhite   Color = 37
+)
 
 // Canvas represents a drawable surface using braille characters
 type Canvas struct {
 	Width  int // Width in pixels (not characters)
 	Height int // Height in pixels (not characters)
 	pixels [][]bool
+	colors [][]Color // Color for each pixel
 }
 
 // NewCanvas creates a new braille canvas with the given pixel dimensions
 func NewCanvas(width, height int) *Canvas {
 	pixels := make([][]bool, height)
+	colors := make([][]Color, height)
 	for i := range pixels {
 		pixels[i] = make([]bool, width)
+		colors[i] = make([]Color, width)
 	}
 	return &Canvas{
 		Width:  width,
 		Height: height,
 		pixels: pixels,
+		colors: colors,
 	}
 }
 
 // Set sets a pixel at the given coordinates
 func (c *Canvas) Set(x, y int) {
+	c.SetWithColor(x, y, ColorWhite)
+}
+
+// SetWithColor sets a pixel at the given coordinates with a specific color
+func (c *Canvas) SetWithColor(x, y int, color Color) {
 	if x >= 0 && x < c.Width && y >= 0 && y < c.Height {
 		c.pixels[y][x] = true
+		c.colors[y][x] = color
 	}
 }
 
@@ -60,6 +86,7 @@ func (c *Canvas) Clear() {
 	for y := range c.pixels {
 		for x := range c.pixels[y] {
 			c.pixels[y][x] = false
+			c.colors[y][x] = ColorWhite
 		}
 	}
 }
@@ -126,27 +153,35 @@ func (c *Canvas) setCirclePoints(cx, cy, x, y int) {
 
 // FillCircle draws a filled circle with center (cx, cy) and radius r
 func (c *Canvas) FillCircle(cx, cy, r int) {
+	c.FillCircleWithColor(cx, cy, r, ColorWhite)
+}
+
+// FillCircleWithColor draws a filled circle with center (cx, cy), radius r, and specific color
+func (c *Canvas) FillCircleWithColor(cx, cy, r int, color Color) {
 	for y := -r; y <= r; y++ {
 		for x := -r; x <= r; x++ {
 			if x*x+y*y <= r*r {
-				c.Set(cx+x, cy+y)
+				c.SetWithColor(cx+x, cy+y, color)
 			}
 		}
 	}
 }
 
-// Render converts the canvas to a string of braille characters
+// Render converts the canvas to a string of braille characters with ANSI colors
 func (c *Canvas) Render() string {
 	charWidth := (c.Width + 1) / 2   // Each braille char is 2 pixels wide
 	charHeight := (c.Height + 3) / 4 // Each braille char is 4 pixels tall
 
 	var result strings.Builder
-	result.Grow(charHeight * (charWidth + 1)) // +1 for newlines
+	result.Grow(charHeight * (charWidth + 1) * 10) // Extra space for ANSI codes
 
-	for cy := 0; cy < charHeight; cy++ {
-		for cx := 0; cx < charWidth; cx++ {
+	currentColor := ColorReset
+
+	for cy := range charHeight {
+		for cx := range charWidth {
 			// Calculate which pixels map to this braille character
 			pattern := 0
+			charColor := ColorWhite
 
 			// Braille dot mapping:
 			dotMap := []struct{ dx, dy, bit int }{
@@ -160,12 +195,24 @@ func (c *Canvas) Render() string {
 				{1, 3, 7}, // dot 8
 			}
 
+			// Find the first set pixel to determine color for this character
+			colorSet := false
 			for _, dm := range dotMap {
 				px := cx*2 + dm.dx
 				py := cy*4 + dm.dy
 				if c.Get(px, py) {
 					pattern |= (1 << dm.bit)
+					if !colorSet {
+						charColor = c.colors[py][px]
+						colorSet = true
+					}
 				}
+			}
+
+			// Only output color code if color changed
+			if pattern != 0 && charColor != currentColor {
+				fmt.Fprintf(&result, "\033[%dm", charColor)
+				currentColor = charColor
 			}
 
 			result.WriteRune(rune(brailleBase + pattern))
@@ -173,6 +220,11 @@ func (c *Canvas) Render() string {
 		if cy < charHeight-1 {
 			result.WriteRune('\n')
 		}
+	}
+
+	// Reset color at the end
+	if currentColor != ColorReset {
+		result.WriteString("\033[0m")
 	}
 
 	return result.String()
