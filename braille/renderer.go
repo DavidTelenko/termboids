@@ -218,7 +218,7 @@ func (c *Canvas) Render() string {
 			result.WriteRune(rune(brailleBase + pattern))
 		}
 		if cy < charHeight-1 {
-			result.WriteRune('\n')
+			result.WriteString("\r\n")
 		}
 	}
 

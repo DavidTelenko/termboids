@@ -1,0 +1,10 @@
+# Termboids Configuration File
+# This file configures keyboard shortcuts and other settings
+
+[keybindings]
+# Press 'c' or 'C' to cycle through color modes
+# Available modes: None (white), Force-based, Distance-based
+cycle_color_mode = "c"
+
+# Press 'q' to quit the application
+quit = "q"

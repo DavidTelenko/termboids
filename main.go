@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"termboids/boids"
 	"termboids/braille"
+	"termboids/config"
+	"termboids/input"
 	"time"
 
 	"golang.org/x/term"
@@ -16,6 +19,13 @@ import (
 const numBoids = 1000
 
 func main() {
+	// Load configuration
+	cfg, err := config.LoadOrDefault()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
 	// Get terminal size
 	termWidth, termHeight, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
@@ -31,21 +41,29 @@ func main() {
 	height := (termHeight - 1) * 4
 
 	// Create boid simulation with default config
-	config := boids.Config{
+	boidConfig := boids.Config{
 		MaxSpeed:         100.0,
 		MaxForce:         80.0,
-		SeparationRadius: 5.0,
+		SeparationRadius: 50.0,
 		AlignmentRadius:  45.0,
 		CohesionRadius:   45.0,
 		SeparationWeight: 1.8,
 		AlignmentWeight:  1.2,
-		CohesionWeight:   1.0,
+		CohesionWeight:   2.0,
 		RenderRadius:     1,
-		ColorMode:        boids.ColorModeDistance, // Use distance-based coloring
+		ColorMode:        boids.ColorModeDistance, // Start with distance-based coloring
 	}
-	simulation := boids.NewSimulation(numBoids, width, height, config)
+	simulation := boids.NewSimulation(numBoids, width, height, boidConfig)
 
 	canvas := braille.NewCanvas(width, height)
+
+	// Initialize input handler
+	inputHandler, err := input.NewHandler()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing input handler: %v\n", err)
+		os.Exit(1)
+	}
+	defer inputHandler.Close()
 
 	// Hide cursor and clear screen once at startup
 	fmt.Print("\033[?25l\033[2J\033[H")
@@ -55,6 +73,7 @@ func main() {
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-sigChan
+		inputHandler.Close()
 		fmt.Print("\033[?25h") // Show cursor
 		os.Exit(0)
 	}()
@@ -74,6 +93,32 @@ func main() {
 	// Animation loop
 	for {
 		frameStart := time.Now()
+
+		// Poll for input
+		key := inputHandler.Poll()
+		if key != 0 {
+			keyStr := strings.ToLower(string(key))
+
+			// Check for quit key
+			if keyStr == strings.ToLower(cfg.KeyBindings.Quit) {
+				inputHandler.Close()
+				fmt.Print("\033[?25h") // Show cursor
+				os.Exit(0)
+			}
+
+			// Check for color mode cycle key
+			if keyStr == strings.ToLower(cfg.KeyBindings.CycleColorMode) {
+				// Cycle through color modes
+				switch simulation.Config.ColorMode {
+				case boids.ColorModeNone:
+					simulation.Config.ColorMode = boids.ColorModeForce
+				case boids.ColorModeForce:
+					simulation.Config.ColorMode = boids.ColorModeDistance
+				case boids.ColorModeDistance:
+					simulation.Config.ColorMode = boids.ColorModeNone
+				}
+			}
+		}
 
 		// Calculate delta time in seconds
 		deltaTime := frameStart.Sub(lastFrameTime).Seconds()
@@ -110,10 +155,16 @@ func main() {
 		fmt.Fprintf(&buffer, "\033[K")                 // Clear line
 
 		// Display status based on color mode
-		if simulation.Config.ColorMode == boids.ColorModeDistance {
-			fmt.Fprintf(&buffer, "FPS: %.1f | Boids: %d | Mode: Distance | \033[31mCenter\033[0m \033[33mClose\033[0m \033[32mFar\033[0m \033[37mOutskirts\033[0m | Ctrl+C to exit", fps, numBoids)
-		} else {
-			fmt.Fprintf(&buffer, "FPS: %.1f | Boids: %d | Mode: Force | \033[31mSeparation\033[0m \033[32mAlignment\033[0m \033[34mCohesion\033[0m \033[37mBalanced\033[0m | Ctrl+C to exit", fps, numBoids)
+		switch simulation.Config.ColorMode {
+		case boids.ColorModeDistance:
+			fmt.Fprintf(&buffer, "FPS: %.1f | Boids: %d | Mode: Distance | \033[31mCenter\033[0m \033[33mClose\033[0m \033[32mFar\033[0m \033[37mOutskirts\033[0m",
+				fps, numBoids)
+		case boids.ColorModeForce:
+			fmt.Fprintf(&buffer, "FPS: %.1f | Boids: %d | Mode: Force | \033[31mSeparation\033[0m \033[32mAlignment\033[0m \033[34mCohesion\033[0m \033[37mBalanced\033[0m",
+				fps, numBoids)
+		default:
+			fmt.Fprintf(&buffer, "FPS: %.1f | Boids: %d | Mode: None",
+				fps, numBoids)
 		}
 
 		// Write entire frame at once

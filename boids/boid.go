@@ -24,8 +24,9 @@ type Boid struct {
 type ColorMode int
 
 const (
-	ColorModeForce    ColorMode = 0 // Color by dominant behavioral force
-	ColorModeDistance ColorMode = 1 // Color by distance to flock center
+	ColorModeNone     ColorMode = 0 // No coloring (white)
+	ColorModeForce    ColorMode = 1 // Color by dominant behavioral force
+	ColorModeDistance ColorMode = 2 // Color by distance to flock center
 )
 
 // Config holds simulation parameters
@@ -212,6 +213,8 @@ func (s *Simulation) Update(deltaTime float64) {
 		// Determine color based on selected mode
 		if s.Config.ColorMode == ColorModeForce {
 			s.colorByForce(boid, sepMagnitude, alignMagnitude, cohMagnitude)
+		} else if s.Config.ColorMode == ColorModeNone {
+			boid.Color = braille.ColorWhite
 		}
 		// Distance-based coloring is done after all positions are updated
 
