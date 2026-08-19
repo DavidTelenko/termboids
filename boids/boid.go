@@ -32,12 +32,12 @@ const (
 
 // Config holds simulation parameters
 type Config struct {
-	config.BoidsConfig              // Embed the shared config
-	RepellantConfig config.RepellantConfig // Repellant interaction config
-	AttractorConfig config.AttractorConfig // Attractor interaction config
-	ColorMode       ColorMode
-	ShowSpatialGrid bool
-	UseGPU          bool
+	config.BoidsConfig                        // Embed the shared config
+	RepellantConfig    config.RepellantConfig // Repellant interaction config
+	AttractorConfig    config.AttractorConfig // Attractor interaction config
+	ColorMode          ColorMode
+	ShowSpatialGrid    bool
+	UseGPU             bool
 }
 
 // DefaultConfig returns the default boid simulation parameters
@@ -129,17 +129,17 @@ func NewSimulation(numBoids, width, height int, config Config) *Simulation {
 func (s *Simulation) Update(deltaTime float64) {
 	// Update simulation time
 	s.simulationTime += deltaTime
-	
+
 	// Check if repellant has expired
 	if s.repellantPoint != nil && s.simulationTime >= s.repellantExpires {
 		s.repellantPoint = nil
 	}
-	
+
 	// Check if attractor has expired
 	if s.attractorPoint != nil && s.simulationTime >= s.attractorExpires {
 		s.attractorPoint = nil
 	}
-	
+
 	// Use GPU compute if available
 	if s.gpuCompute != nil {
 		s.updateGPU(deltaTime)
@@ -161,7 +161,7 @@ func (s *Simulation) updateGPU(deltaTime float64) {
 		s.updateCPU(deltaTime)
 		return
 	}
-	
+
 	// Upload boids to GPU
 	if err := s.gpuCompute.UploadBoids(s.Boids); err != nil {
 		return
@@ -250,11 +250,11 @@ func (s *Simulation) updateCPU(deltaTime float64) {
 
 		// Calculate steering forces
 		acceleration := Vector2D{0, 0}
-		
+
 		// Add repellant force if active (this should dominate other forces)
 		if s.repellantPoint != nil {
 			dist := boid.Position.Distance(*s.repellantPoint)
-			
+
 			if dist < s.Config.RepellantConfig.Radius && dist > 0 {
 				// Steer away from repellant point
 				diff := boid.Position.Sub(*s.repellantPoint)
@@ -265,11 +265,11 @@ func (s *Simulation) updateCPU(deltaTime float64) {
 				acceleration = acceleration.Add(diff)
 			}
 		}
-		
+
 		// Add attractor force if active (this should dominate other forces)
 		if s.attractorPoint != nil {
 			dist := boid.Position.Distance(*s.attractorPoint)
-			
+
 			if dist < s.Config.AttractorConfig.Radius && dist > 0 {
 				// Steer towards attractor point
 				diff := s.attractorPoint.Sub(boid.Position)

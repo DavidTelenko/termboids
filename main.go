@@ -203,7 +203,7 @@ func main() {
 				}
 			}
 		}
-		
+
 		// Poll for mouse events
 		mouseEvent := inputHandler.PollMouse()
 		if mouseEvent != nil {
@@ -212,7 +212,7 @@ func main() {
 			// Each character is 2 pixels wide and 4 pixels tall (braille characters)
 			pixelX := float64(mouseEvent.X * 2)
 			pixelY := float64(mouseEvent.Y * 4)
-			
+
 			// Left click = repellant, Right click = attractor
 			if mouseEvent.Button == 0 {
 				// Left click - set repellant point with configured duration
@@ -279,12 +279,12 @@ func main() {
 			if simulation.Config.ShowSpatialGrid {
 				fmt.Fprintf(&buffer, " | \033[36mDEBUG: Grid ON\033[0m")
 			}
-			
+
 			// Add repellant indicator if active
 			if simulation.GetRepellant() != nil {
 				fmt.Fprintf(&buffer, " | \033[31m🔴 REPELLANT\033[0m")
 			}
-			
+
 			// Add attractor indicator if active
 			if simulation.GetAttractor() != nil {
 				fmt.Fprintf(&buffer, " | \033[32m🟢 ATTRACTOR\033[0m")
