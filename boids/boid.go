@@ -94,12 +94,12 @@ func NewSimulation(numBoids, width, height int, config Config) *Simulation {
 		}
 	}
 
-	// Use cell size of the smallest interaction radius
+	// Use cell size of the largest interaction radius
 	cellSize := int(config.CohesionRadius)
-	if config.AlignmentRadius < float64(cellSize) {
+	if config.AlignmentRadius > float64(cellSize) {
 		cellSize = int(config.AlignmentRadius)
 	}
-	if config.SeparationRadius < float64(cellSize) {
+	if config.SeparationRadius > float64(cellSize) {
 		cellSize = int(config.SeparationRadius)
 	}
 

@@ -51,6 +51,7 @@ go build
 Configuration is split across multiple files:
 
 ### `system.toml` - System Settings
+
 - `fps` - Target framerate
 - `use_gpu` - Enable/disable GPU compute acceleration (default: true)
 - Keybindings
@@ -65,6 +66,7 @@ Configuration is split across multiple files:
   - `duration` - How long the effect lasts (seconds)
 
 Example mouse interaction configuration in `system.toml`:
+
 ```toml
 [repellant]
 radius = 200.0      # 200 pixel radius
@@ -78,6 +80,7 @@ duration = 2.0      # lasts 2 seconds
 ```
 
 ### `configs/*.toml` - Boid Behavior Presets
+
 - Boid behavior parameters (speed, forces, radii, weights)
 - Number of boids
 - Render settings
