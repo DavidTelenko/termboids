@@ -466,6 +466,15 @@ func (s *Simulation) Release() {
 	}
 }
 
+// SetBounds updates the simulation bounds
+func (s *Simulation) SetBounds(width, height int) {
+	s.Width = width
+	s.Height = height
+	// Update spatial grid with new bounds (keep the same cell size)
+	cellSize := s.grid.cellSize
+	s.grid = NewSpatialGrid(width, height, cellSize)
+}
+
 // IsUsingGPU returns true if GPU compute is active
 func (s *Simulation) IsUsingGPU() bool {
 	return s.gpuCompute != nil

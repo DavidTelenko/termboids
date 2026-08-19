@@ -11,6 +11,7 @@ import (
 type KeyBindings struct {
 	CycleColorMode string `toml:"cycle_color_mode"`
 	DebugGrid      string `toml:"debug_grid"`
+	ToggleHelp     string `toml:"toggle_help"`
 	Quit           string `toml:"quit"`
 }
 
@@ -48,6 +49,7 @@ func DefaultConfig() Config {
 		KeyBindings: KeyBindings{
 			CycleColorMode: "c",
 			DebugGrid:      "d",
+			ToggleHelp:     "h",
 			Quit:           "q",
 		},
 		Boids: BoidsConfig{

@@ -18,6 +18,9 @@ cycle_color_mode = "c"
 # Press 'd' or 'D' to toggle debug spatial grid visualization
 debug_grid = "d"
 
+# Press 'h' to hide bottom help line
+toggle_help = "h"
+
 # Press 'q' to quit the application
 quit = "q"
 
