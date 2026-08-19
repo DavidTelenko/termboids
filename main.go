@@ -38,6 +38,9 @@ func main() {
 	// Track whether config debug window is visible
 	showConfigDebug := false
 
+	// Track whether simulation is paused
+	isPaused := false
+
 	// Track current preset name
 	currentPreset := "Default"
 
@@ -137,8 +140,6 @@ func main() {
 				// Cycle through color modes
 				switch simulation.Config.ColorMode {
 				case boids.ColorModeNone:
-					simulation.Config.ColorMode = boids.ColorModeForce
-				case boids.ColorModeForce:
 					simulation.Config.ColorMode = boids.ColorModeDistance
 				case boids.ColorModeDistance:
 					simulation.Config.ColorMode = boids.ColorModeNone
@@ -166,6 +167,11 @@ func main() {
 			// Check for show config debug key
 			if keyStr == strings.ToLower(cfg.System.KeyBindings.ShowConfig) {
 				showConfigDebug = !showConfigDebug
+			}
+
+			// Check for pause key
+			if keyStr == strings.ToLower(cfg.System.KeyBindings.Pause) {
+				isPaused = !isPaused
 			}
 
 			// Check for preset loading keys (1-0)
@@ -199,8 +205,10 @@ func main() {
 		buffer.Reset()
 		canvas.Clear()
 
-		// Update simulation with delta time
-		simulation.Update(deltaTime)
+		// Update simulation with delta time (only if not paused)
+		if !isPaused {
+			simulation.Update(deltaTime)
+		}
 
 		// Draw boids using simulation's Draw method
 		simulation.Draw(canvas)
@@ -226,6 +234,11 @@ func main() {
 			// Display status with current preset
 			fmt.Fprintf(&buffer, "FPS: %.1f | Boids: %d | Preset: \033[33m%s\033[0m",
 				fps, cfg.Boids.NumBoids, currentPreset)
+
+			// Add pause indicator
+			if isPaused {
+				fmt.Fprintf(&buffer, " | \033[31m⏸ PAUSED\033[0m")
+			}
 
 			// Add GPU indicator
 			if simulation.Config.UseGPU && simulation.IsUsingGPU() {

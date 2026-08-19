@@ -27,16 +27,15 @@ type ColorMode int
 
 const (
 	ColorModeNone     ColorMode = 0 // No coloring (white)
-	ColorModeForce    ColorMode = 1 // Color by dominant behavioral force
-	ColorModeDistance ColorMode = 2 // Color by distance to flock center
+	ColorModeDistance ColorMode = 1 // Color by distance to flock center
 )
 
 // Config holds simulation parameters
 type Config struct {
-	config.BoidsConfig        // Embed the shared config
-	ColorMode        ColorMode
-	ShowSpatialGrid  bool
-	UseGPU           bool
+	config.BoidsConfig // Embed the shared config
+	ColorMode          ColorMode
+	ShowSpatialGrid    bool
+	UseGPU             bool
 }
 
 // DefaultConfig returns the default boid simulation parameters
@@ -46,18 +45,18 @@ func DefaultConfig() Config {
 	return Config{
 		BoidsConfig: config.BoidsConfig{
 			NumBoids:         1000,
-			MaxSpeed:         50.0,              // pixels per second - fast movement
-			MaxForce:         80.0,              // acceleration per second - responsive turning
-			SeparationRadius: 5.0,               // Small radius = tight packing
-			AlignmentRadius:  35.0,              // Medium radius = group coordination
-			CohesionRadius:   45.0,              // Larger radius = strong clustering
-			SeparationWeight: 1.8,               // Strong separation to prevent overlap
-			AlignmentWeight:  1.2,               // Strong alignment for coordinated movement
-			CohesionWeight:   1.0,               // Moderate cohesion for clustering
-			RandomWeight:     0.15,              // Small random force to prevent stabilization
-			RenderRadius:     1,                 // Single dot
+			MaxSpeed:         50.0, // pixels per second - fast movement
+			MaxForce:         80.0, // acceleration per second - responsive turning
+			SeparationRadius: 5.0,  // Small radius = tight packing
+			AlignmentRadius:  35.0, // Medium radius = group coordination
+			CohesionRadius:   45.0, // Larger radius = strong clustering
+			SeparationWeight: 1.8,  // Strong separation to prevent overlap
+			AlignmentWeight:  1.2,  // Strong alignment for coordinated movement
+			CohesionWeight:   1.0,  // Moderate cohesion for clustering
+			RandomWeight:     0.15, // Small random force to prevent stabilization
+			RenderRadius:     1,    // Single dot
 		},
-		ColorMode:        ColorModeDistance, // Default to distance-based coloring
+		ColorMode: ColorModeDistance, // Default to distance-based coloring
 	}
 }
 
@@ -124,13 +123,14 @@ func (s *Simulation) Update(deltaTime float64) {
 	// Use GPU compute if available
 	if s.gpuCompute != nil {
 		s.updateGPU(deltaTime)
+		// Apply color modes for GPU path (GPU shader doesn't compute colors)
+		s.applyColorMode()
 	} else {
 		s.updateCPU(deltaTime)
 	}
 
 	// Apply distance-based coloring if in distance mode
 	if s.Config.ColorMode == ColorModeDistance {
-		s.colorByDistance()
 	}
 }
 
@@ -226,8 +226,6 @@ func (s *Simulation) updateCPU(deltaTime float64) {
 		acceleration := Vector2D{0, 0}
 
 		// Track force magnitudes to determine dominant behavior
-		var sepMagnitude, alignMagnitude, cohMagnitude float64
-
 		if separationCount > 0 {
 			separation = separation.Scale(1.0 / float64(separationCount))
 			if separation.Length() > 0 {
@@ -235,7 +233,6 @@ func (s *Simulation) updateCPU(deltaTime float64) {
 				separation = separation.Sub(boid.Velocity)
 				separation = separation.Limit(s.Config.MaxForce)
 				sepForce := separation.Scale(s.Config.SeparationWeight)
-				sepMagnitude = sepForce.Length()
 				acceleration = acceleration.Add(sepForce)
 			}
 		}
@@ -246,7 +243,6 @@ func (s *Simulation) updateCPU(deltaTime float64) {
 			alignment = alignment.Sub(boid.Velocity)
 			alignment = alignment.Limit(s.Config.MaxForce)
 			alignForce := alignment.Scale(s.Config.AlignmentWeight)
-			alignMagnitude = alignForce.Length()
 			acceleration = acceleration.Add(alignForce)
 		}
 
@@ -257,7 +253,6 @@ func (s *Simulation) updateCPU(deltaTime float64) {
 			desired = desired.Sub(boid.Velocity)
 			desired = desired.Limit(s.Config.MaxForce)
 			cohForce := desired.Scale(s.Config.CohesionWeight)
-			cohMagnitude = cohForce.Length()
 			acceleration = acceleration.Add(cohForce)
 		}
 
@@ -273,8 +268,6 @@ func (s *Simulation) updateCPU(deltaTime float64) {
 
 		// Determine color based on selected mode
 		switch s.Config.ColorMode {
-		case ColorModeForce:
-			s.colorByForce(boid, sepMagnitude, alignMagnitude, cohMagnitude)
 		case ColorModeNone:
 			boid.Color = braille.ColorWhite
 		}
@@ -306,22 +299,17 @@ func (s *Simulation) updateCPU(deltaTime float64) {
 	}
 }
 
-// colorByForce assigns colors based on dominant behavioral force
-func (s *Simulation) colorByForce(boid *Boid, sepMagnitude, alignMagnitude, cohMagnitude float64) {
-	// Red = Separation, Green = Alignment, Blue = Cohesion, White = Balanced
-	totalMagnitude := sepMagnitude + alignMagnitude + cohMagnitude
-	if totalMagnitude < 0.1 {
-		// Very weak forces - balanced/neutral
-		boid.Color = braille.ColorWhite
-	} else if sepMagnitude > alignMagnitude && sepMagnitude > cohMagnitude {
-		// Separation dominant - avoiding crowding
-		boid.Color = braille.ColorRed
-	} else if alignMagnitude > cohMagnitude {
-		// Alignment dominant - matching neighbors
-		boid.Color = braille.ColorGreen
-	} else {
-		// Cohesion dominant - seeking group
-		boid.Color = braille.ColorBlue
+// applyColorMode applies the current color mode to all boids
+// This is used for GPU path where colors aren't computed in the shader
+func (s *Simulation) applyColorMode() {
+	switch s.Config.ColorMode {
+	case ColorModeNone:
+		// Set all boids to white
+		for _, boid := range s.Boids {
+			boid.Color = braille.ColorWhite
+		}
+	case ColorModeDistance:
+		s.colorByDistance()
 	}
 }
 

@@ -27,6 +27,9 @@ quit = "q"
 # Press 'i' or 'I' to show boid config info window
 show_config = "i"
 
+# Press 'p' or 'P' to pause/unpause the simulation
+pause = "p"
+
 # Boid configuration presets
 # Press number keys 1-0 to load different boid configurations
 # Each entry maps a key to a configuration file path

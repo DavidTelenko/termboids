@@ -14,6 +14,7 @@ type KeyBindings struct {
 	ToggleHelp     string `toml:"toggle_help"`
 	Quit           string `toml:"quit"`
 	ShowConfig     string `toml:"show_config"`
+	Pause          string `toml:"pause"`
 }
 
 // Preset defines a boid configuration preset that can be loaded via keybinding
@@ -66,6 +67,7 @@ func DefaultConfig() Config {
 				ToggleHelp:     "h",
 				Quit:           "q",
 				ShowConfig:     "i",
+				Pause:          "p",
 			},
 			Rendering: RenderingConfig{
 				UseGPU: true,
