@@ -35,6 +35,12 @@ func main() {
 	// Track whether bottom line is visible
 	showHelp := true
 
+	// Track whether config debug window is visible
+	showConfigDebug := false
+
+	// Track current preset name
+	currentPreset := "Default"
+
 	// Calculate pixel dimensions
 	// Each braille character is 2 pixels wide and 4 pixels tall
 	// Reserve 1 line for status text at the bottom (when visible)
@@ -48,18 +54,9 @@ func main() {
 
 	// Create boid simulation from config
 	boidConfig := boids.Config{
-		MaxSpeed:         cfg.Boids.MaxSpeed,
-		MaxForce:         cfg.Boids.MaxForce,
-		SeparationRadius: cfg.Boids.SeparationRadius,
-		AlignmentRadius:  cfg.Boids.AlignmentRadius,
-		CohesionRadius:   cfg.Boids.CohesionRadius,
-		SeparationWeight: cfg.Boids.SeparationWeight,
-		AlignmentWeight:  cfg.Boids.AlignmentWeight,
-		CohesionWeight:   cfg.Boids.CohesionWeight,
-		RandomWeight:     cfg.Boids.RandomWeight,
-		RenderRadius:     cfg.Boids.RenderRadius,
-		ColorMode:        boids.ColorModeDistance, // Start with distance-based coloring
-		UseGPU:           cfg.Rendering.UseGPU,
+		BoidsConfig: cfg.Boids,
+		ColorMode:   boids.ColorModeDistance, // Start with distance-based coloring
+		UseGPU:      cfg.System.Rendering.UseGPU,
 	}
 	simulation := boids.NewSimulation(cfg.Boids.NumBoids, width, height, boidConfig)
 	defer simulation.Release() // Clean up GPU resources on exit
@@ -101,7 +98,22 @@ func main() {
 	lastFrameTime := time.Now()
 
 	// Target frame time for 60 FPS
-	targetFrameTime := time.Second / time.Duration(cfg.Rendering.FPS)
+	targetFrameTime := time.Second / time.Duration(cfg.System.Rendering.FPS)
+
+	// Preload all preset configs at startup
+	presetConfigs := make(map[string]config.BoidsConfig)
+	presetNameMap := make(map[string]string)
+	for _, preset := range cfg.System.Presets {
+		presetConfig, err := config.LoadBoidsConfig(preset.Path)
+		if err != nil {
+			// Log warning but continue - preset won't be available
+			fmt.Fprintf(os.Stderr, "Warning: Failed to load preset '%s' from %s: %v\n",
+				preset.Name, preset.Path, err)
+			continue
+		}
+		presetConfigs[preset.Key] = presetConfig
+		presetNameMap[preset.Key] = preset.Name
+	}
 
 	// Animation loop
 	for {
@@ -113,7 +125,7 @@ func main() {
 			keyStr := strings.ToLower(string(key))
 
 			// Check for quit key
-			if keyStr == strings.ToLower(cfg.KeyBindings.Quit) {
+			if keyStr == strings.ToLower(cfg.System.KeyBindings.Quit) {
 				simulation.Release()
 				inputHandler.Close()
 				fmt.Print("\033[?25h\033[?1049l") // Show cursor and restore normal screen buffer
@@ -121,7 +133,7 @@ func main() {
 			}
 
 			// Check for color mode cycle key
-			if keyStr == strings.ToLower(cfg.KeyBindings.CycleColorMode) {
+			if keyStr == strings.ToLower(cfg.System.KeyBindings.CycleColorMode) {
 				// Cycle through color modes
 				switch simulation.Config.ColorMode {
 				case boids.ColorModeNone:
@@ -134,12 +146,12 @@ func main() {
 			}
 
 			// Check for debug grid toggle key
-			if keyStr == strings.ToLower(cfg.KeyBindings.DebugGrid) {
+			if keyStr == strings.ToLower(cfg.System.KeyBindings.DebugGrid) {
 				simulation.Config.ShowSpatialGrid = !simulation.Config.ShowSpatialGrid
 			}
 
 			// Check for toggle bottom line key
-			if keyStr == strings.ToLower(cfg.KeyBindings.ToggleHelp) {
+			if keyStr == strings.ToLower(cfg.System.KeyBindings.ToggleHelp) {
 				showHelp = !showHelp
 				// Recalculate height and resize canvas
 				if showHelp {
@@ -149,6 +161,29 @@ func main() {
 				}
 				simulation.SetBounds(width, height)
 				canvas = braille.NewCanvas(width, height)
+			}
+
+			// Check for show config debug key
+			if keyStr == strings.ToLower(cfg.System.KeyBindings.ShowConfig) {
+				showConfigDebug = !showConfigDebug
+			}
+
+			// Check for preset loading keys (1-0)
+			if presetConfig, ok := presetConfigs[keyStr]; ok {
+				// Update current preset name
+				currentPreset = presetNameMap[keyStr]
+
+				// Update current config
+				cfg.Boids = presetConfig
+
+				// Update simulation config with new boids parameters
+				simulation.Config.BoidsConfig = presetConfig
+
+				// Recreate boids with new count if it changed
+				if presetConfig.NumBoids != len(simulation.Boids) {
+					simulation.Release()
+					simulation = boids.NewSimulation(presetConfig.NumBoids, width, height, simulation.Config)
+				}
 			}
 		}
 
@@ -188,18 +223,9 @@ func main() {
 			fmt.Fprintf(&buffer, "\033[%d;1H", termHeight) // Move to last line, first column
 			fmt.Fprintf(&buffer, "\033[K")                 // Clear line
 
-			// Display status based on color mode
-			switch simulation.Config.ColorMode {
-			case boids.ColorModeDistance:
-				fmt.Fprintf(&buffer, "FPS: %.1f | Boids: %d | Mode: Distance | \033[31mCenter\033[0m \033[33mClose\033[0m \033[32mFar\033[0m \033[37mOutskirts\033[0m",
-					fps, cfg.Boids.NumBoids)
-			case boids.ColorModeForce:
-				fmt.Fprintf(&buffer, "FPS: %.1f | Boids: %d | Mode: Force | \033[31mSeparation\033[0m \033[32mAlignment\033[0m \033[34mCohesion\033[0m \033[37mBalanced\033[0m",
-					fps, cfg.Boids.NumBoids)
-			default:
-				fmt.Fprintf(&buffer, "FPS: %.1f | Boids: %d | Mode: None",
-					fps, cfg.Boids.NumBoids)
-			}
+			// Display status with current preset
+			fmt.Fprintf(&buffer, "FPS: %.1f | Boids: %d | Preset: \033[33m%s\033[0m",
+				fps, cfg.Boids.NumBoids, currentPreset)
 
 			// Add GPU indicator
 			if simulation.Config.UseGPU && simulation.IsUsingGPU() {
@@ -209,6 +235,35 @@ func main() {
 			// Add debug grid indicator if enabled
 			if simulation.Config.ShowSpatialGrid {
 				fmt.Fprintf(&buffer, " | \033[36mDEBUG: Grid ON\033[0m")
+			}
+		}
+
+		// Display floating config debug window if enabled
+		if showConfigDebug {
+			// Position at bottom left corner
+			startX := 2
+			startY := max(termHeight-15, 1)
+
+			// Draw window border and content using rounded single-line box drawing
+			lines := []string{
+				"╭──────────────────────────────────────────────╮",
+				"│        BOID CONFIGURATION DEBUG              │",
+				"├──────────────────────────────────────────────┤",
+				fmt.Sprintf("│ Num Boids:         %-25d │", cfg.Boids.NumBoids),
+				fmt.Sprintf("│ Max Speed:         %-25.2f │", cfg.Boids.MaxSpeed),
+				fmt.Sprintf("│ Max Force:         %-25.2f │", cfg.Boids.MaxForce),
+				fmt.Sprintf("│ Separation Radius: %-25.2f │", cfg.Boids.SeparationRadius),
+				fmt.Sprintf("│ Alignment Radius:  %-25.2f │", cfg.Boids.AlignmentRadius),
+				fmt.Sprintf("│ Cohesion Radius:   %-25.2f │", cfg.Boids.CohesionRadius),
+				fmt.Sprintf("│ Separation Weight: %-25.2f │", cfg.Boids.SeparationWeight),
+				fmt.Sprintf("│ Alignment Weight:  %-25.2f │", cfg.Boids.AlignmentWeight),
+				fmt.Sprintf("│ Cohesion Weight:   %-25.2f │", cfg.Boids.CohesionWeight),
+				fmt.Sprintf("│ Random Weight:     %-25.2f │", cfg.Boids.RandomWeight),
+				"╰──────────────────────────────────────────────╯",
+			}
+
+			for i, line := range lines {
+				fmt.Fprintf(&buffer, "\033[%d;%dH%s", startY+i, startX, line)
 			}
 		}
 

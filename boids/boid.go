@@ -3,6 +3,7 @@ package boids
 import (
 	"math/rand"
 	"termboids/braille"
+	"termboids/config"
 )
 
 // Drawable interface for objects that can be drawn on a canvas
@@ -32,16 +33,7 @@ const (
 
 // Config holds simulation parameters
 type Config struct {
-	MaxSpeed         float64
-	MaxForce         float64
-	SeparationRadius float64
-	AlignmentRadius  float64
-	CohesionRadius   float64
-	SeparationWeight float64
-	AlignmentWeight  float64
-	CohesionWeight   float64
-	RandomWeight     float64
-	RenderRadius     int
+	config.BoidsConfig        // Embed the shared config
 	ColorMode        ColorMode
 	ShowSpatialGrid  bool
 	UseGPU           bool
@@ -52,16 +44,19 @@ type Config struct {
 // Note: speeds are in pixels per second (frame-rate independent)
 func DefaultConfig() Config {
 	return Config{
-		MaxSpeed:         50.0,              // pixels per second - fast movement
-		MaxForce:         80.0,              // acceleration per second - responsive turning
-		SeparationRadius: 5.0,               // Small radius = tight packing
-		AlignmentRadius:  35.0,              // Medium radius = group coordination
-		CohesionRadius:   45.0,              // Larger radius = strong clustering
-		SeparationWeight: 1.8,               // Strong separation to prevent overlap
-		AlignmentWeight:  1.2,               // Strong alignment for coordinated movement
-		CohesionWeight:   1.0,               // Moderate cohesion for clustering
-		RandomWeight:     0.15,              // Small random force to prevent stabilization
-		RenderRadius:     1,                 // Single dot
+		BoidsConfig: config.BoidsConfig{
+			NumBoids:         1000,
+			MaxSpeed:         50.0,              // pixels per second - fast movement
+			MaxForce:         80.0,              // acceleration per second - responsive turning
+			SeparationRadius: 5.0,               // Small radius = tight packing
+			AlignmentRadius:  35.0,              // Medium radius = group coordination
+			CohesionRadius:   45.0,              // Larger radius = strong clustering
+			SeparationWeight: 1.8,               // Strong separation to prevent overlap
+			AlignmentWeight:  1.2,               // Strong alignment for coordinated movement
+			CohesionWeight:   1.0,               // Moderate cohesion for clustering
+			RandomWeight:     0.15,              // Small random force to prevent stabilization
+			RenderRadius:     1,                 // Single dot
+		},
 		ColorMode:        ColorModeDistance, // Default to distance-based coloring
 	}
 }

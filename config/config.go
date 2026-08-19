@@ -13,6 +13,14 @@ type KeyBindings struct {
 	DebugGrid      string `toml:"debug_grid"`
 	ToggleHelp     string `toml:"toggle_help"`
 	Quit           string `toml:"quit"`
+	ShowConfig     string `toml:"show_config"`
+}
+
+// Preset defines a boid configuration preset that can be loaded via keybinding
+type Preset struct {
+	Key  string `toml:"key"`
+	Name string `toml:"name"`
+	Path string `toml:"path"`
 }
 
 type RenderingConfig struct {
@@ -35,22 +43,35 @@ type BoidsConfig struct {
 	RenderRadius     int     `toml:"render_radius"`
 }
 
+// SystemConfig holds system-wide configuration (rendering, keybindings, presets)
+type SystemConfig struct {
+	KeyBindings KeyBindings      `toml:"keybindings"`
+	Rendering   RenderingConfig  `toml:"rendering"`
+	Presets     []Preset         `toml:"presets"`
+}
+
 // Config holds all application configuration
 type Config struct {
-	KeyBindings KeyBindings     `toml:"keybindings"`
-	FPS         int             `toml:"fps"`
-	Boids       BoidsConfig     `toml:"boids"`
-	Rendering   RenderingConfig `toml:"rendering"`
+	System SystemConfig
+	Boids  BoidsConfig
 }
 
 // DefaultConfig returns the default configuration
 func DefaultConfig() Config {
 	return Config{
-		KeyBindings: KeyBindings{
-			CycleColorMode: "c",
-			DebugGrid:      "d",
-			ToggleHelp:     "h",
-			Quit:           "q",
+		System: SystemConfig{
+			KeyBindings: KeyBindings{
+				CycleColorMode: "c",
+				DebugGrid:      "d",
+				ToggleHelp:     "h",
+				Quit:           "q",
+				ShowConfig:     "i",
+			},
+			Rendering: RenderingConfig{
+				UseGPU: true,
+				FPS:    60,
+			},
+			Presets: []Preset{},
 		},
 		Boids: BoidsConfig{
 			NumBoids:         1000,
@@ -65,54 +86,103 @@ func DefaultConfig() Config {
 			RandomWeight:     0.15,
 			RenderRadius:     1,
 		},
-		Rendering: RenderingConfig{
-			UseGPU: true, // Enable GPU by default
-			FPS:    60,   // Enable GPU by default
-		},
 	}
 }
 
-// Load reads configuration from a TOML file
-// If the file doesn't exist, it returns the default configuration
-func Load(path string) (Config, error) {
-	// If no path provided, check for config.toml in current directory
-	if path == "" {
-		path = "config.toml"
-	}
-
+// Load reads configuration from TOML files
+// Loads system config from system.toml (or legacy config.toml)
+// and boids config from boids.toml (or legacy config.toml)
+func Load(systemPath, boidsPath string) (Config, error) {
 	// Start with default config
 	cfg := DefaultConfig()
 
-	// If file doesn't exist, return default config
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return cfg, nil
+	// Load system config
+	if systemPath == "" {
+		systemPath = "system.toml"
+	}
+	
+	// Try loading system config (fall back to config.toml for backward compatibility)
+	if _, err := os.Stat(systemPath); err == nil {
+		if _, err := toml.DecodeFile(systemPath, &cfg.System); err != nil {
+			return Config{}, err
+		}
+	} else if _, err := os.Stat("config.toml"); err == nil {
+		// Backward compatibility: load from old config.toml format
+		var legacyConfig struct {
+			KeyBindings KeyBindings     `toml:"keybindings"`
+			Rendering   RenderingConfig `toml:"rendering"`
+		}
+		if _, err := toml.DecodeFile("config.toml", &legacyConfig); err != nil {
+			return Config{}, err
+		}
+		cfg.System.KeyBindings = legacyConfig.KeyBindings
+		cfg.System.Rendering = legacyConfig.Rendering
 	}
 
-	// Decode TOML file, merging with defaults
-	if _, err := toml.DecodeFile(path, &cfg); err != nil {
-		return Config{}, err
+	// Load boids config
+	if boidsPath == "" {
+		boidsPath = "boids.toml"
+	}
+	
+	// Try loading boids config (fall back to config.toml for backward compatibility)
+	if _, err := os.Stat(boidsPath); err == nil {
+		var boidsConfig struct {
+			Boids BoidsConfig `toml:"boids"`
+		}
+		if _, err := toml.DecodeFile(boidsPath, &boidsConfig); err != nil {
+			return Config{}, err
+		}
+		cfg.Boids = boidsConfig.Boids
+	} else if _, err := os.Stat("config.toml"); err == nil {
+		// Backward compatibility: load from old config.toml format
+		var legacyConfig struct {
+			Boids BoidsConfig `toml:"boids"`
+		}
+		if _, err := toml.DecodeFile("config.toml", &legacyConfig); err != nil {
+			return Config{}, err
+		}
+		cfg.Boids = legacyConfig.Boids
 	}
 
 	return cfg, nil
+}
+
+// LoadBoidsConfig loads only the boids configuration from a file
+func LoadBoidsConfig(path string) (BoidsConfig, error) {
+	cfg := DefaultConfig().Boids
+	
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return cfg, err
+	}
+
+	var boidsConfig struct {
+		Boids BoidsConfig `toml:"boids"`
+	}
+	
+	if _, err := toml.DecodeFile(path, &boidsConfig); err != nil {
+		return BoidsConfig{}, err
+	}
+
+	return boidsConfig.Boids, nil
 }
 
 // LoadOrDefault attempts to load config from standard locations
 // Falls back to default if no config file is found
 func LoadOrDefault() (Config, error) {
 	// Try current directory first
-	cfg, err := Load("config.toml")
+	cfg, err := Load("", "")
 	if err != nil {
 		return Config{}, err
 	}
 
-	// If config was loaded from file, return it
-	// (Load now returns defaults if file doesn't exist)
+	// Try home directory config
 	homeDir, err := os.UserHomeDir()
 	if err == nil {
-		homeCfg := filepath.Join(homeDir, ".config", "termboids", "config.toml")
-		if _, err := os.Stat(homeCfg); err == nil {
-			// Home config exists, try to load it
-			cfg, err = Load(homeCfg)
+		homeSystemCfg := filepath.Join(homeDir, ".config", "termboids", "system.toml")
+		homeBoidsCfg := filepath.Join(homeDir, ".config", "termboids", "boids.toml")
+		
+		if _, err := os.Stat(homeSystemCfg); err == nil {
+			cfg, err = Load(homeSystemCfg, homeBoidsCfg)
 			if err != nil {
 				return Config{}, err
 			}
@@ -122,14 +192,3 @@ func LoadOrDefault() (Config, error) {
 	return cfg, nil
 }
 
-// Save writes the configuration to a TOML file
-func (c *Config) Save(path string) error {
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	encoder := toml.NewEncoder(f)
-	return encoder.Encode(c)
-}

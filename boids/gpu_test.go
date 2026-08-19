@@ -1,6 +1,7 @@
 package boids
 
 import (
+	"termboids/config"
 	"testing"
 )
 
@@ -11,18 +12,21 @@ func TestGPUCompute(t *testing.T) {
 	height := 600
 
 	config := Config{
-		MaxSpeed:         50.0,
-		MaxForce:         80.0,
-		SeparationRadius: 5.0,
-		AlignmentRadius:  35.0,
-		CohesionRadius:   45.0,
-		SeparationWeight: 1.8,
-		AlignmentWeight:  1.2,
-		CohesionWeight:   1.0,
-		RandomWeight:     0.15,
-		RenderRadius:     1,
-		ColorMode:        ColorModeDistance,
-		UseGPU:           true,
+		BoidsConfig: config.BoidsConfig{
+			NumBoids:         numBoids,
+			MaxSpeed:         50.0,
+			MaxForce:         80.0,
+			SeparationRadius: 5.0,
+			AlignmentRadius:  35.0,
+			CohesionRadius:   45.0,
+			SeparationWeight: 1.8,
+			AlignmentWeight:  1.2,
+			CohesionWeight:   1.0,
+			RandomWeight:     0.15,
+			RenderRadius:     1,
+		},
+		ColorMode: ColorModeDistance,
+		UseGPU:    true,
 	}
 
 	// Create simulation with GPU
@@ -63,18 +67,21 @@ func BenchmarkGPUCompute(b *testing.B) {
 	height := 600
 
 	config := Config{
-		MaxSpeed:         50.0,
-		MaxForce:         80.0,
-		SeparationRadius: 5.0,
-		AlignmentRadius:  35.0,
-		CohesionRadius:   45.0,
-		SeparationWeight: 1.8,
-		AlignmentWeight:  1.2,
-		CohesionWeight:   1.0,
-		RandomWeight:     0.15,
-		RenderRadius:     1,
-		ColorMode:        ColorModeDistance,
-		UseGPU:           true,
+		BoidsConfig: config.BoidsConfig{
+			NumBoids:         numBoids,
+			MaxSpeed:         50.0,
+			MaxForce:         80.0,
+			SeparationRadius: 5.0,
+			AlignmentRadius:  35.0,
+			CohesionRadius:   45.0,
+			SeparationWeight: 1.8,
+			AlignmentWeight:  1.2,
+			CohesionWeight:   1.0,
+			RandomWeight:     0.15,
+			RenderRadius:     1,
+		},
+		ColorMode: ColorModeDistance,
+		UseGPU:    true,
 	}
 
 	sim := NewSimulation(numBoids, width, height, config)
@@ -96,18 +103,21 @@ func BenchmarkCPUCompute(b *testing.B) {
 	height := 600
 
 	config := Config{
-		MaxSpeed:         50.0,
-		MaxForce:         80.0,
-		SeparationRadius: 5.0,
-		AlignmentRadius:  35.0,
-		CohesionRadius:   45.0,
-		SeparationWeight: 1.8,
-		AlignmentWeight:  1.2,
-		CohesionWeight:   1.0,
-		RandomWeight:     0.15,
-		RenderRadius:     1,
-		ColorMode:        ColorModeDistance,
-		UseGPU:           false,
+		BoidsConfig: config.BoidsConfig{
+			NumBoids:         numBoids,
+			MaxSpeed:         50.0,
+			MaxForce:         80.0,
+			SeparationRadius: 5.0,
+			AlignmentRadius:  35.0,
+			CohesionRadius:   45.0,
+			SeparationWeight: 1.8,
+			AlignmentWeight:  1.2,
+			CohesionWeight:   1.0,
+			RandomWeight:     0.15,
+			RenderRadius:     1,
+		},
+		ColorMode: ColorModeDistance,
+		UseGPU:    false,
 	}
 
 	sim := NewSimulation(numBoids, width, height, config)
@@ -115,8 +125,7 @@ func BenchmarkCPUCompute(b *testing.B) {
 
 	deltaTime := 0.016
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		sim.Update(deltaTime)
 	}
 }

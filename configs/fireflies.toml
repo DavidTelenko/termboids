@@ -1,0 +1,37 @@
+# Fireflies Boid Configuration
+# Fast, erratic movement with high randomness
+
+[boids]
+# Number of boids in the simulation
+num_boids = 1000
+
+# Maximum speed (pixels per second)
+max_speed = 50.0
+
+# Maximum force/acceleration (pixels per second squared)
+max_force = 80.0
+
+# Separation radius - distance at which boids avoid each other
+separation_radius = 5.0
+
+# Alignment radius - distance for matching neighbor velocities
+alignment_radius = 5.0
+
+# Cohesion radius - distance for moving toward group center
+cohesion_radius = 5.0
+
+# Separation weight - strength of avoidance behavior
+separation_weight = 2.4
+
+# Alignment weight - strength of velocity matching
+alignment_weight = 0.8
+
+# Cohesion weight - strength of grouping behavior
+cohesion_weight = 2.6
+
+# Random weight - strength of random forces (prevents stabilization)
+# Set to 0 to disable random behavior
+random_weight = 15.8
+
+# Render radius - size of each boid (1 = single pixel)
+render_radius = 1

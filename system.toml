@@ -1,0 +1,47 @@
+# Termboids System Configuration
+# This file configures rendering settings and keyboard shortcuts
+
+[rendering]
+# Target framerate
+fps = 60
+
+# Use GPU compute shader for boid calculations
+# Provides significant performance improvement for large numbers of boids
+# Falls back to CPU if GPU initialization fails
+use_gpu = true
+
+[keybindings]
+# Press 'c' or 'C' to cycle through color modes
+# Available modes: None (white), Force-based, Distance-based
+cycle_color_mode = "c"
+
+# Press 'd' or 'D' to toggle debug spatial grid visualization
+debug_grid = "d"
+
+# Press 'h' to hide bottom help line
+toggle_help = "h"
+
+# Press 'q' to quit the application
+quit = "q"
+
+# Press 'i' or 'I' to show boid config info window
+show_config = "i"
+
+# Boid configuration presets
+# Press number keys 1-0 to load different boid configurations
+# Each entry maps a key to a configuration file path
+[[presets]]
+key = "1"
+name = "Fireflies"
+path = "configs/fireflies.toml"
+
+[[presets]]
+key = "2"
+name = "Realistic"
+path = "configs/realistic.toml"
+
+# Add more presets below (up to 10 total, keys 1-0)
+# [[presets]]
+# key = "3"
+# name = "My Custom Config"
+# path = "configs/custom.toml"
