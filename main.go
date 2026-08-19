@@ -51,8 +51,10 @@ func main() {
 		RandomWeight:     cfg.Boids.RandomWeight,
 		RenderRadius:     cfg.Boids.RenderRadius,
 		ColorMode:        boids.ColorModeDistance, // Start with distance-based coloring
+		UseGPU:           cfg.Boids.UseGPU,
 	}
 	simulation := boids.NewSimulation(cfg.Boids.NumBoids, width, height, boidConfig)
+	defer simulation.Release() // Clean up GPU resources on exit
 
 	canvas := braille.NewCanvas(width, height)
 
@@ -72,6 +74,7 @@ func main() {
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-sigChan
+		simulation.Release()
 		inputHandler.Close()
 		fmt.Print("\033[?25h") // Show cursor
 		os.Exit(0)
@@ -100,6 +103,7 @@ func main() {
 
 			// Check for quit key
 			if keyStr == strings.ToLower(cfg.KeyBindings.Quit) {
+				simulation.Release()
 				inputHandler.Close()
 				fmt.Print("\033[?25h") // Show cursor
 				os.Exit(0)

@@ -42,7 +42,12 @@ cohesion_weight = 1.0
 
 # Random weight - strength of random forces (prevents stabilization)
 # Set to 0 to disable random behavior
-random_weight = 5.15
+random_weight = 25.15
 
 # Render radius - size of each boid (1 = single pixel)
 render_radius = 1
+
+# Use GPU compute shader for boid calculations
+# Provides significant performance improvement for large numbers of boids
+# Falls back to CPU if GPU initialization fails
+use_gpu = true

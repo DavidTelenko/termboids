@@ -27,6 +27,7 @@ type BoidsConfig struct {
 	CohesionWeight   float64 `toml:"cohesion_weight"`
 	RandomWeight     float64 `toml:"random_weight"`
 	RenderRadius     int     `toml:"render_radius"`
+	UseGPU           bool    `toml:"use_gpu"`
 }
 
 // Config holds all application configuration
@@ -55,6 +56,7 @@ func DefaultConfig() Config {
 			CohesionWeight:   1.0,
 			RandomWeight:     0.15,
 			RenderRadius:     1,
+			UseGPU:           true, // Enable GPU by default
 		},
 	}
 }

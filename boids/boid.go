@@ -44,6 +44,7 @@ type Config struct {
 	RenderRadius     int
 	ColorMode        ColorMode
 	ShowSpatialGrid  bool
+	UseGPU           bool
 }
 
 // DefaultConfig returns the default boid simulation parameters
@@ -73,6 +74,7 @@ type Simulation struct {
 	Height          int
 	grid            *SpatialGrid
 	smoothedMaxDist float64 // Smoothed max distance to prevent flickering
+	gpuCompute      *GPUCompute
 }
 
 // NewSimulation creates a new boid simulation
@@ -100,7 +102,7 @@ func NewSimulation(numBoids, width, height int, config Config) *Simulation {
 		cellSize = int(config.SeparationRadius)
 	}
 
-	return &Simulation{
+	sim := &Simulation{
 		Boids:           boids,
 		Config:          config,
 		Width:           width,
@@ -108,10 +110,66 @@ func NewSimulation(numBoids, width, height int, config Config) *Simulation {
 		grid:            NewSpatialGrid(width, height, cellSize),
 		smoothedMaxDist: 100.0, // Initial value
 	}
+
+	// Initialize GPU compute if enabled
+	if config.UseGPU {
+		gpuCompute, err := NewGPUCompute(numBoids)
+		if err != nil {
+			// Fallback to CPU if GPU initialization fails
+			println("Warning: GPU initialization failed, falling back to CPU:", err.Error())
+		} else {
+			sim.gpuCompute = gpuCompute
+			println("GPU compute enabled")
+		}
+	}
+
+	return sim
 }
 
 // Update advances the simulation by deltaTime seconds
 func (s *Simulation) Update(deltaTime float64) {
+	// Use GPU compute if available
+	if s.gpuCompute != nil {
+		s.updateGPU(deltaTime)
+	} else {
+		s.updateCPU(deltaTime)
+	}
+
+	// Apply distance-based coloring if in distance mode
+	if s.Config.ColorMode == ColorModeDistance {
+		s.colorByDistance()
+	}
+}
+
+// updateGPU uses GPU compute shader for boid updates
+func (s *Simulation) updateGPU(deltaTime float64) {
+	// Upload boids to GPU
+	if err := s.gpuCompute.UploadBoids(s.Boids); err != nil {
+		println("Error uploading boids to GPU:", err.Error())
+		return
+	}
+
+	// Upload config
+	if err := s.gpuCompute.UploadConfig(s.Config, s.Width, s.Height, deltaTime); err != nil {
+		println("Error uploading config to GPU:", err.Error())
+		return
+	}
+
+	// Run compute shader
+	if err := s.gpuCompute.Compute(); err != nil {
+		println("Error running GPU compute:", err.Error())
+		return
+	}
+
+	// Download results
+	if err := s.gpuCompute.DownloadBoids(s.Boids); err != nil {
+		println("Error downloading boids from GPU:", err.Error())
+		return
+	}
+}
+
+// updateCPU uses CPU-based boid updates (original implementation)
+func (s *Simulation) updateCPU(deltaTime float64) {
 	// Rebuild spatial grid
 	s.grid.Clear()
 	for _, boid := range s.Boids {
@@ -256,11 +314,6 @@ func (s *Simulation) Update(deltaTime float64) {
 		} else if boid.Position.Y >= float64(s.Height) {
 			boid.Position.Y -= float64(s.Height)
 		}
-	}
-
-	// Apply distance-based coloring if in distance mode
-	if s.Config.ColorMode == ColorModeDistance {
-		s.colorByDistance()
 	}
 }
 
@@ -408,5 +461,13 @@ func (s *Simulation) drawSpatialGrid(canvas Drawable) {
 	// Draw horizontal lines
 	for y := cellSize; y < s.Height; y += cellSize {
 		canvas.DrawLineWithColor(0, y, s.Width-1, y, gridColor)
+	}
+}
+
+// Release frees simulation resources (especially GPU resources)
+func (s *Simulation) Release() {
+	if s.gpuCompute != nil {
+		s.gpuCompute.Release()
+		s.gpuCompute = nil
 	}
 }
