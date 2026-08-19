@@ -156,19 +156,13 @@ func (s *Simulation) Update(deltaTime float64) {
 
 // updateGPU uses GPU compute shader for boid updates
 func (s *Simulation) updateGPU(deltaTime float64) {
-	// If repellant or attractor is active, fall back to CPU since GPU shader doesn't support them yet
-	if s.repellantPoint != nil || s.attractorPoint != nil {
-		s.updateCPU(deltaTime)
-		return
-	}
-
 	// Upload boids to GPU
 	if err := s.gpuCompute.UploadBoids(s.Boids); err != nil {
 		return
 	}
 
-	// Upload config
-	if err := s.gpuCompute.UploadConfig(s.Config, s.Width, s.Height, deltaTime); err != nil {
+	// Upload config with attractor/repellant data
+	if err := s.gpuCompute.UploadConfig(s.Config, s.Width, s.Height, deltaTime, s.repellantPoint, s.attractorPoint); err != nil {
 		return
 	}
 

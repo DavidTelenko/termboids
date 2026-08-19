@@ -35,7 +35,19 @@ type GPUConfig struct {
 	DeltaTime        float32
 	NumBoids         uint32
 	FrameCount       uint32
-	_padding         [2]uint32 // Align to 16 bytes for uniform buffers
+	// Repellant config
+	RepellantActive  uint32  // 0 = inactive, 1 = active
+	RepellantX       float32
+	RepellantY       float32
+	RepellantRadius  float32
+	RepellantStrength float32
+	// Attractor config
+	AttractorActive  uint32  // 0 = inactive, 1 = active
+	AttractorX       float32
+	AttractorY       float32
+	AttractorRadius  float32
+	AttractorStrength float32
+	_padding         uint32  // Align to 16 bytes
 }
 
 // GPUCompute handles GPU-accelerated boid computation
@@ -350,7 +362,7 @@ func (g *GPUCompute) UploadBoids(boids []*Boid) error {
 }
 
 // UploadConfig uploads simulation config to GPU
-func (g *GPUCompute) UploadConfig(config Config, width, height int, deltaTime float64) error {
+func (g *GPUCompute) UploadConfig(config Config, width, height int, deltaTime float64, repellantPoint, attractorPoint *Vector2D) error {
 	gpuConfig := GPUConfig{
 		MaxSpeed:         float32(config.MaxSpeed),
 		MaxForce:         float32(config.MaxForce),
@@ -366,6 +378,28 @@ func (g *GPUCompute) UploadConfig(config Config, width, height int, deltaTime fl
 		DeltaTime:        float32(deltaTime),
 		NumBoids:         uint32(g.numBoids),
 		FrameCount:       g.frameCount,
+	}
+
+	// Set repellant config if active
+	if repellantPoint != nil {
+		gpuConfig.RepellantActive = 1
+		gpuConfig.RepellantX = float32(repellantPoint.X)
+		gpuConfig.RepellantY = float32(repellantPoint.Y)
+		gpuConfig.RepellantRadius = float32(config.RepellantConfig.Radius)
+		gpuConfig.RepellantStrength = float32(config.RepellantConfig.Strength)
+	} else {
+		gpuConfig.RepellantActive = 0
+	}
+
+	// Set attractor config if active
+	if attractorPoint != nil {
+		gpuConfig.AttractorActive = 1
+		gpuConfig.AttractorX = float32(attractorPoint.X)
+		gpuConfig.AttractorY = float32(attractorPoint.Y)
+		gpuConfig.AttractorRadius = float32(config.AttractorConfig.Radius)
+		gpuConfig.AttractorStrength = float32(config.AttractorConfig.Strength)
+	} else {
+		gpuConfig.AttractorActive = 0
 	}
 
 	g.frameCount++

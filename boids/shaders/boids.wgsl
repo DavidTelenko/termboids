@@ -23,6 +23,19 @@ struct Config {
     delta_time: f32,
     num_boids: u32,
     frame_count: u32, // For randomness
+    // Repellant config
+    repellant_active: u32,  // 0 = inactive, 1 = active
+    repellant_x: f32,
+    repellant_y: f32,
+    repellant_radius: f32,
+    repellant_strength: f32,
+    // Attractor config
+    attractor_active: u32,  // 0 = inactive, 1 = active
+    attractor_x: f32,
+    attractor_y: f32,
+    attractor_radius: f32,
+    attractor_strength: f32,
+    _padding: u32,  // Align to 16 bytes
 }
 
 @group(0) @binding(0) var<storage, read> boids_in: array<Boid>;
@@ -180,6 +193,36 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // Calculate steering forces
     var acceleration = vec2<f32>(0.0, 0.0);
+
+    // Repellant force (if active)
+    if (config.repellant_active != 0u) {
+        let repellant_pos = vec2<f32>(config.repellant_x, config.repellant_y);
+        let diff = wrapped_difference(pos, repellant_pos);
+        let dist = length_vec2(diff);
+        
+        if (dist < config.repellant_radius && dist > 0.0) {
+            // Steer away from repellant point
+            // Stronger force when closer
+            let strength = (config.repellant_radius - dist) / config.repellant_radius;
+            let repellant_force = normalize_vec2(diff) * config.max_force * strength * config.repellant_strength;
+            acceleration = acceleration + repellant_force;
+        }
+    }
+
+    // Attractor force (if active)
+    if (config.attractor_active != 0u) {
+        let attractor_pos = vec2<f32>(config.attractor_x, config.attractor_y);
+        let diff = wrapped_difference(attractor_pos, pos);
+        let dist = length_vec2(diff);
+        
+        if (dist < config.attractor_radius && dist > 0.0) {
+            // Steer towards attractor point
+            // Stronger force when closer
+            let strength = (config.attractor_radius - dist) / config.attractor_radius;
+            let attractor_force = normalize_vec2(diff) * config.max_force * strength * config.attractor_strength;
+            acceleration = acceleration + attractor_force;
+        }
+    }
 
     // Separation
     if (separation_count > 0u) {
