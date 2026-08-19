@@ -7,12 +7,19 @@ import (
 	"golang.org/x/term"
 )
 
-// Handler manages keyboard input in a non-blocking manner
+// MouseEvent represents a mouse click event
+type MouseEvent struct {
+	X int
+	Y int
+}
+
+// Handler manages keyboard and mouse input in a non-blocking manner
 type Handler struct {
-	oldState *term.State
-	mu       sync.Mutex
-	events   chan rune
-	stop     chan struct{}
+	oldState    *term.State
+	mu          sync.Mutex
+	events      chan rune
+	mouseEvents chan MouseEvent
+	stop        chan struct{}
 }
 
 // NewHandler creates and initializes a new input handler
@@ -24,9 +31,10 @@ func NewHandler() (*Handler, error) {
 	}
 
 	h := &Handler{
-		oldState: oldState,
-		events:   make(chan rune, 100),
-		stop:     make(chan struct{}),
+		oldState:    oldState,
+		events:      make(chan rune, 100),
+		mouseEvents: make(chan MouseEvent, 100),
+		stop:        make(chan struct{}),
 	}
 
 	// Start listening for input in a goroutine
@@ -37,7 +45,7 @@ func NewHandler() (*Handler, error) {
 
 // listen continuously reads from stdin and sends keys to the events channel
 func (h *Handler) listen() {
-	buf := make([]byte, 3)
+	buf := make([]byte, 16) // Larger buffer for mouse sequences
 	for {
 		select {
 		case <-h.stop:
@@ -48,8 +56,56 @@ func (h *Handler) listen() {
 				continue
 			}
 
-			// Handle single byte characters
-			if n == 1 {
+			// Check for mouse event sequence: ESC [ < button ; x ; y M (press) or m (release)
+			// SGR extended mouse format: \x1b[<0;x;yM for left click press
+			if n >= 6 && buf[0] == 0x1b && buf[1] == '[' && buf[2] == '<' {
+				// Parse mouse event
+				var button, x, y int
+				var eventType byte
+				
+				// Find semicolons and parse coordinates
+				parsed := 0
+				numStart := 3
+				for i := 3; i < n; i++ {
+					if buf[i] == ';' || buf[i] == 'M' || buf[i] == 'm' {
+						if buf[i] == 'M' || buf[i] == 'm' {
+							eventType = buf[i]
+							// Parse last number (y coordinate)
+							if parsed == 2 {
+								y = 0
+								for j := numStart; j < i; j++ {
+									if buf[j] >= '0' && buf[j] <= '9' {
+										y = y*10 + int(buf[j]-'0')
+									}
+								}
+							}
+							break
+						}
+						
+						// Parse current number
+						num := 0
+						for j := numStart; j < i; j++ {
+							if buf[j] >= '0' && buf[j] <= '9' {
+								num = num*10 + int(buf[j]-'0')
+							}
+						}
+						
+						if parsed == 0 {
+							button = num
+						} else if parsed == 1 {
+							x = num
+						}
+						parsed++
+						numStart = i + 1
+					}
+				}
+				
+				// Only handle left click press (button 0, eventType 'M')
+				if button == 0 && eventType == 'M' {
+					h.mouseEvents <- MouseEvent{X: x - 1, Y: y - 1} // Convert to 0-based
+				}
+			} else if n == 1 {
+				// Handle single byte characters
 				h.events <- rune(buf[0])
 			}
 			// Could extend this to handle multi-byte sequences (arrow keys, etc.)
@@ -64,6 +120,16 @@ func (h *Handler) Poll() rune {
 		return key
 	default:
 		return 0
+	}
+}
+
+// PollMouse returns the next mouse event if available
+func (h *Handler) PollMouse() *MouseEvent {
+	select {
+	case event := <-h.mouseEvents:
+		return &event
+	default:
+		return nil
 	}
 }
 

@@ -29,6 +29,13 @@ type RenderingConfig struct {
 	FPS    int  `toml:"fps"`
 }
 
+// RepellantConfig holds mouse repellant interaction settings
+type RepellantConfig struct {
+	Radius   float64 `toml:"radius"`
+	Strength float64 `toml:"strength"`
+	Duration float64 `toml:"duration"`
+}
+
 // BoidsConfig holds boid simulation parameters
 type BoidsConfig struct {
 	NumBoids         int     `toml:"num_boids"`
@@ -46,9 +53,10 @@ type BoidsConfig struct {
 
 // SystemConfig holds system-wide configuration (rendering, keybindings, presets)
 type SystemConfig struct {
-	KeyBindings KeyBindings      `toml:"keybindings"`
-	Rendering   RenderingConfig  `toml:"rendering"`
-	Presets     []Preset         `toml:"presets"`
+	KeyBindings KeyBindings     `toml:"keybindings"`
+	Rendering   RenderingConfig `toml:"rendering"`
+	Repellant   RepellantConfig `toml:"repellant"`
+	Presets     []Preset        `toml:"presets"`
 }
 
 // Config holds all application configuration
@@ -72,6 +80,11 @@ func DefaultConfig() Config {
 			Rendering: RenderingConfig{
 				UseGPU: true,
 				FPS:    60,
+			},
+			Repellant: RepellantConfig{
+				Radius:   200.0,
+				Strength: 10.0,
+				Duration: 2.0,
 			},
 			Presets: []Preset{},
 		},

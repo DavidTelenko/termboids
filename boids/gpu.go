@@ -333,9 +333,18 @@ func (g *GPUCompute) UploadBoids(boids []*Boid) error {
 		}
 	}
 
-	// Write to GPU buffer
+	// Write to the correct input buffer based on ping-pong state
 	data := unsafe.Slice((*byte)(unsafe.Pointer(&gpuBoids[0])), len(gpuBoids)*int(unsafe.Sizeof(GPUBoid{})))
-	g.queue.WriteBuffer(g.bufferIn, 0, data)
+	
+	// Determine which buffer is the input buffer
+	var inputBuffer *wgpu.Buffer
+	if g.useBindGroup0 {
+		inputBuffer = g.bufferIn
+	} else {
+		inputBuffer = g.bufferOut
+	}
+	
+	g.queue.WriteBuffer(inputBuffer, 0, data)
 
 	return nil
 }

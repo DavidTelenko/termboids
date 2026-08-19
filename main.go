@@ -57,9 +57,10 @@ func main() {
 
 	// Create boid simulation from config
 	boidConfig := boids.Config{
-		BoidsConfig: cfg.Boids,
-		ColorMode:   boids.ColorModeDistance, // Start with distance-based coloring
-		UseGPU:      cfg.System.Rendering.UseGPU,
+		BoidsConfig:     cfg.Boids,
+		RepellantConfig: cfg.System.Repellant,
+		ColorMode:       boids.ColorModeDistance, // Start with distance-based coloring
+		UseGPU:          cfg.System.Rendering.UseGPU,
 	}
 	simulation := boids.NewSimulation(cfg.Boids.NumBoids, width, height, boidConfig)
 	defer simulation.Release() // Clean up GPU resources on exit
@@ -74,8 +75,15 @@ func main() {
 	}
 	defer inputHandler.Close()
 
-	// Switch to alternate screen buffer, hide cursor and clear screen once at startup
-	fmt.Print("\033[?1049h\033[?25l\033[2J\033[H")
+	// Switch to alternate screen buffer, hide cursor, enable mouse tracking and clear screen once at startup
+	// \033[?1049h - alternate screen buffer
+	// \033[?25l - hide cursor
+	// \033[?1000h - enable mouse button press tracking
+	// \033[?1002h - enable mouse button press and release tracking
+	// \033[?1006h - enable SGR extended mouse mode (better coordinate handling)
+	// \033[2J - clear screen
+	// \033[H - move cursor to home
+	fmt.Print("\033[?1049h\033[?25l\033[?1000h\033[?1002h\033[?1006h\033[2J\033[H")
 
 	// Setup signal handler to restore terminal on exit
 	sigChan := make(chan os.Signal, 1)
@@ -84,7 +92,8 @@ func main() {
 		<-sigChan
 		simulation.Release()
 		inputHandler.Close()
-		fmt.Print("\033[?25h\033[?1049l") // Show cursor and restore normal screen buffer
+		// Disable mouse tracking, show cursor and restore normal screen buffer
+		fmt.Print("\033[?1006l\033[?1002l\033[?1000l\033[?25h\033[?1049l")
 		os.Exit(0)
 	}()
 
@@ -131,7 +140,8 @@ func main() {
 			if keyStr == strings.ToLower(cfg.System.KeyBindings.Quit) {
 				simulation.Release()
 				inputHandler.Close()
-				fmt.Print("\033[?25h\033[?1049l") // Show cursor and restore normal screen buffer
+				// Disable mouse tracking, show cursor and restore normal screen buffer
+				fmt.Print("\033[?1006l\033[?1002l\033[?1000l\033[?25h\033[?1049l")
 				os.Exit(0)
 			}
 
@@ -192,6 +202,19 @@ func main() {
 				}
 			}
 		}
+		
+		// Poll for mouse events
+		mouseEvent := inputHandler.PollMouse()
+		if mouseEvent != nil {
+			// Convert terminal coordinates to pixel coordinates
+			// Terminal coordinates are character-based, need to convert to pixel space
+			// Each character is 2 pixels wide and 4 pixels tall (braille characters)
+			pixelX := float64(mouseEvent.X * 2)
+			pixelY := float64(mouseEvent.Y * 4)
+			
+			// Set repellant point with configured duration
+			simulation.SetRepellant(pixelX, pixelY, cfg.System.Repellant.Duration)
+		}
 
 		// Calculate delta time in seconds
 		deltaTime := frameStart.Sub(lastFrameTime).Seconds()
@@ -248,6 +271,11 @@ func main() {
 			// Add debug grid indicator if enabled
 			if simulation.Config.ShowSpatialGrid {
 				fmt.Fprintf(&buffer, " | \033[36mDEBUG: Grid ON\033[0m")
+			}
+			
+			// Add repellant indicator if active
+			if simulation.GetRepellant() != nil {
+				fmt.Fprintf(&buffer, " | \033[31m🔴 REPELLANT\033[0m")
 			}
 		}
 

@@ -10,6 +10,17 @@ fps = 60
 # Falls back to CPU if GPU initialization fails
 use_gpu = true
 
+[repellant]
+# Mouse interaction settings - click to create temporary repellant points
+# Radius of repellant effect in pixels
+radius = 20.0
+
+# Force multiplier - higher values create stronger push away from click point
+strength = 10.0
+
+# Duration in seconds that the repellant effect lasts
+duration = 0.3
+
 [keybindings]
 # Press 'c' or 'C' to cycle through color modes
 # Available modes: None (white), Force-based, Distance-based

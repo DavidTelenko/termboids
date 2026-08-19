@@ -32,10 +32,11 @@ const (
 
 // Config holds simulation parameters
 type Config struct {
-	config.BoidsConfig // Embed the shared config
-	ColorMode          ColorMode
-	ShowSpatialGrid    bool
-	UseGPU             bool
+	config.BoidsConfig     // Embed the shared config
+	config.RepellantConfig // Embed the repellant config
+	ColorMode              ColorMode
+	ShowSpatialGrid        bool
+	UseGPU                 bool
 }
 
 // DefaultConfig returns the default boid simulation parameters
@@ -62,13 +63,16 @@ func DefaultConfig() Config {
 
 // Simulation manages a flock of boids
 type Simulation struct {
-	Boids           []*Boid
-	Config          Config
-	Width           int
-	Height          int
-	grid            *SpatialGrid
-	smoothedMaxDist float64 // Smoothed max distance to prevent flickering
-	gpuCompute      *GPUCompute
+	Boids            []*Boid
+	Config           Config
+	Width            int
+	Height           int
+	grid             *SpatialGrid
+	smoothedMaxDist  float64 // Smoothed max distance to prevent flickering
+	gpuCompute       *GPUCompute
+	repellantPoint   *Vector2D // Active repellant point (nil if none)
+	repellantExpires float64   // Time when repellant expires (seconds since start)
+	simulationTime   float64   // Total simulation time in seconds
 }
 
 // NewSimulation creates a new boid simulation
@@ -120,6 +124,14 @@ func NewSimulation(numBoids, width, height int, config Config) *Simulation {
 
 // Update advances the simulation by deltaTime seconds
 func (s *Simulation) Update(deltaTime float64) {
+	// Update simulation time
+	s.simulationTime += deltaTime
+	
+	// Check if repellant has expired
+	if s.repellantPoint != nil && s.simulationTime >= s.repellantExpires {
+		s.repellantPoint = nil
+	}
+	
 	// Use GPU compute if available
 	if s.gpuCompute != nil {
 		s.updateGPU(deltaTime)
@@ -136,6 +148,12 @@ func (s *Simulation) Update(deltaTime float64) {
 
 // updateGPU uses GPU compute shader for boid updates
 func (s *Simulation) updateGPU(deltaTime float64) {
+	// If repellant is active, fall back to CPU since GPU shader doesn't support it yet
+	if s.repellantPoint != nil {
+		s.updateCPU(deltaTime)
+		return
+	}
+	
 	// Upload boids to GPU
 	if err := s.gpuCompute.UploadBoids(s.Boids); err != nil {
 		return
@@ -224,6 +242,21 @@ func (s *Simulation) updateCPU(deltaTime float64) {
 
 		// Calculate steering forces
 		acceleration := Vector2D{0, 0}
+		
+		// Add repellant force if active (this should dominate other forces)
+		if s.repellantPoint != nil {
+			dist := boid.Position.Distance(*s.repellantPoint)
+			
+			if dist < s.Config.Radius && dist > 0 {
+				// Steer away from repellant point
+				diff := boid.Position.Sub(*s.repellantPoint)
+				// Stronger force when closer
+				strength := (s.Config.Radius - dist) / s.Config.Radius
+				// Apply configured repellant strength multiplier
+				diff = diff.Normalize().Scale(s.Config.MaxForce * strength * s.Config.Strength)
+				acceleration = acceleration.Add(diff)
+			}
+		}
 
 		// Track force magnitudes to determine dominant behavior
 		if separationCount > 0 {
@@ -461,4 +494,15 @@ func (s *Simulation) SetBounds(width, height int) {
 // IsUsingGPU returns true if GPU compute is active
 func (s *Simulation) IsUsingGPU() bool {
 	return s.gpuCompute != nil
+}
+
+// SetRepellant sets a repellant point that boids will avoid for the specified duration
+func (s *Simulation) SetRepellant(x, y float64, duration float64) {
+	s.repellantPoint = &Vector2D{X: x, Y: y}
+	s.repellantExpires = s.simulationTime + duration
+}
+
+// GetRepellant returns the current repellant point if active, nil otherwise
+func (s *Simulation) GetRepellant() *Vector2D {
+	return s.repellantPoint
 }
