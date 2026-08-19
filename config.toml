@@ -1,6 +1,15 @@
 # Termboids Configuration File
 # This file configures keyboard shortcuts and boid simulation parameters
 
+[rendering]
+# Target framerate
+fps = 60
+
+# Use GPU compute shader for boid calculations
+# Provides significant performance improvement for large numbers of boids
+# Falls back to CPU if GPU initialization fails
+use_gpu = true
+
 [keybindings]
 # Press 'c' or 'C' to cycle through color modes
 # Available modes: None (white), Force-based, Distance-based
@@ -46,8 +55,3 @@ random_weight = 25.15
 
 # Render radius - size of each boid (1 = single pixel)
 render_radius = 1
-
-# Use GPU compute shader for boid calculations
-# Provides significant performance improvement for large numbers of boids
-# Falls back to CPU if GPU initialization fails
-use_gpu = true

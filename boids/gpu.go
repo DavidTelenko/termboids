@@ -43,7 +43,8 @@ type GPUCompute struct {
 	device          *wgpu.Device
 	queue           *wgpu.Queue
 	pipeline        *wgpu.ComputePipeline
-	bindGroup       *wgpu.BindGroup
+	bindGroup0      *wgpu.BindGroup // Bind group for buffer config 0 (in=0, out=1)
+	bindGroup1      *wgpu.BindGroup // Bind group for buffer config 1 (in=1, out=0)
 	bufferIn        *wgpu.Buffer
 	bufferOut       *wgpu.Buffer
 	bufferStaging   *wgpu.Buffer
@@ -52,6 +53,7 @@ type GPUCompute struct {
 	frameCount      uint32
 	workgroupSize   int
 	bindGroupLayout *wgpu.BindGroupLayout
+	useBindGroup0   bool // Toggle between bind groups
 }
 
 // NewGPUCompute creates a new GPU compute context for boid simulation
@@ -72,9 +74,8 @@ func NewGPUCompute(numBoids int) (*GPUCompute, error) {
 	}
 	defer adapter.Release()
 
-	// Get adapter info
-	adapterProps := adapter.GetProperties()
-	fmt.Printf("Using GPU: %s\n", adapterProps.Name)
+	// Get adapter info (silently - don't interfere with terminal rendering)
+	_ = adapter.GetProperties()
 
 	// Request device
 	device, err := adapter.RequestDevice(nil)
@@ -189,9 +190,9 @@ func NewGPUCompute(numBoids int) (*GPUCompute, error) {
 		return nil, fmt.Errorf("failed to create bind group layout: %w", err)
 	}
 
-	// Create bind group
-	bindGroup, err := device.CreateBindGroup(&wgpu.BindGroupDescriptor{
-		Label:  "Boid Compute Bind Group",
+	// Create bind group 0 (in=bufferIn, out=bufferOut)
+	bindGroup0, err := device.CreateBindGroup(&wgpu.BindGroupDescriptor{
+		Label:  "Boid Compute Bind Group 0",
 		Layout: bindGroupLayout,
 		Entries: []wgpu.BindGroupEntry{
 			{
@@ -221,7 +222,43 @@ func NewGPUCompute(numBoids int) (*GPUCompute, error) {
 		configBuffer.Release()
 		bindGroupLayout.Release()
 		device.Release()
-		return nil, fmt.Errorf("failed to create bind group: %w", err)
+		return nil, fmt.Errorf("failed to create bind group 0: %w", err)
+	}
+
+	// Create bind group 1 (in=bufferOut, out=bufferIn) for ping-pong
+	bindGroup1, err := device.CreateBindGroup(&wgpu.BindGroupDescriptor{
+		Label:  "Boid Compute Bind Group 1",
+		Layout: bindGroupLayout,
+		Entries: []wgpu.BindGroupEntry{
+			{
+				Binding: 0,
+				Buffer:  bufferOut,
+				Offset:  0,
+				Size:    bufferSize,
+			},
+			{
+				Binding: 1,
+				Buffer:  bufferIn,
+				Offset:  0,
+				Size:    bufferSize,
+			},
+			{
+				Binding: 2,
+				Buffer:  configBuffer,
+				Offset:  0,
+				Size:    configSize,
+			},
+		},
+	})
+	if err != nil {
+		bufferIn.Release()
+		bufferOut.Release()
+		bufferStaging.Release()
+		configBuffer.Release()
+		bindGroupLayout.Release()
+		bindGroup0.Release()
+		device.Release()
+		return nil, fmt.Errorf("failed to create bind group 1: %w", err)
 	}
 
 	// Create pipeline layout
@@ -235,7 +272,8 @@ func NewGPUCompute(numBoids int) (*GPUCompute, error) {
 		bufferStaging.Release()
 		configBuffer.Release()
 		bindGroupLayout.Release()
-		bindGroup.Release()
+		bindGroup0.Release()
+		bindGroup1.Release()
 		device.Release()
 		return nil, fmt.Errorf("failed to create pipeline layout: %w", err)
 	}
@@ -256,7 +294,8 @@ func NewGPUCompute(numBoids int) (*GPUCompute, error) {
 		bufferStaging.Release()
 		configBuffer.Release()
 		bindGroupLayout.Release()
-		bindGroup.Release()
+		bindGroup0.Release()
+		bindGroup1.Release()
 		device.Release()
 		return nil, fmt.Errorf("failed to create compute pipeline: %w", err)
 	}
@@ -265,7 +304,8 @@ func NewGPUCompute(numBoids int) (*GPUCompute, error) {
 		device:          device,
 		queue:           queue,
 		pipeline:        pipeline,
-		bindGroup:       bindGroup,
+		bindGroup0:      bindGroup0,
+		bindGroup1:      bindGroup1,
 		bufferIn:        bufferIn,
 		bufferOut:       bufferOut,
 		bufferStaging:   bufferStaging,
@@ -273,6 +313,7 @@ func NewGPUCompute(numBoids int) (*GPUCompute, error) {
 		numBoids:        numBoids,
 		workgroupSize:   64, // Must match shader @workgroup_size
 		bindGroupLayout: bindGroupLayout,
+		useBindGroup0:   true,
 	}, nil
 }
 
@@ -335,7 +376,13 @@ func (g *GPUCompute) Compute() error {
 	// Create compute pass
 	computePass := encoder.BeginComputePass(nil)
 	computePass.SetPipeline(g.pipeline)
-	computePass.SetBindGroup(0, g.bindGroup, nil)
+	
+	// Use the appropriate bind group for ping-pong buffering
+	if g.useBindGroup0 {
+		computePass.SetBindGroup(0, g.bindGroup0, nil)
+	} else {
+		computePass.SetBindGroup(0, g.bindGroup1, nil)
+	}
 
 	// Dispatch compute shader
 	// Calculate number of workgroups needed (round up)
@@ -352,12 +399,23 @@ func (g *GPUCompute) Compute() error {
 	defer commandBuffer.Release()
 
 	g.queue.Submit(commandBuffer)
+	
+	// Ensure compute shader completes before returning
+	g.device.Poll(true, nil)
 
 	return nil
 }
 
 // DownloadBoids downloads boid data from GPU
 func (g *GPUCompute) DownloadBoids(boids []*Boid) error {
+	// Determine which buffer has the output based on current bind group
+	var outputBuffer *wgpu.Buffer
+	if g.useBindGroup0 {
+		outputBuffer = g.bufferOut
+	} else {
+		outputBuffer = g.bufferIn
+	}
+
 	// Copy output buffer to staging buffer
 	encoder, err := g.device.CreateCommandEncoder(nil)
 	if err != nil {
@@ -366,7 +424,7 @@ func (g *GPUCompute) DownloadBoids(boids []*Boid) error {
 	defer encoder.Release()
 
 	bufferSize := uint64(unsafe.Sizeof(GPUBoid{})) * uint64(g.numBoids)
-	encoder.CopyBufferToBuffer(g.bufferOut, 0, g.bufferStaging, 0, bufferSize)
+	encoder.CopyBufferToBuffer(outputBuffer, 0, g.bufferStaging, 0, bufferSize)
 
 	commandBuffer, err := encoder.Finish(nil)
 	if err != nil {
@@ -406,50 +464,19 @@ func (g *GPUCompute) DownloadBoids(boids []*Boid) error {
 	// Unmap buffer
 	g.bufferStaging.Unmap()
 
-	// Swap buffers for next frame (ping-pong)
-	g.bufferIn, g.bufferOut = g.bufferOut, g.bufferIn
-
-	// Update bind group for swapped buffers
-	bufferSize64 := bufferSize
-	newBindGroup, err := g.device.CreateBindGroup(&wgpu.BindGroupDescriptor{
-		Label:  "Boid Compute Bind Group",
-		Layout: g.bindGroupLayout,
-		Entries: []wgpu.BindGroupEntry{
-			{
-				Binding: 0,
-				Buffer:  g.bufferIn,
-				Offset:  0,
-				Size:    bufferSize64,
-			},
-			{
-				Binding: 1,
-				Buffer:  g.bufferOut,
-				Offset:  0,
-				Size:    bufferSize64,
-			},
-			{
-				Binding: 2,
-				Buffer:  g.configBuffer,
-				Offset:  0,
-				Size:    uint64(unsafe.Sizeof(GPUConfig{})),
-			},
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create new bind group: %w", err)
-	}
-
-	// Release old bind group and use new one
-	g.bindGroup.Release()
-	g.bindGroup = newBindGroup
+	// Toggle bind group for next frame (ping-pong)
+	g.useBindGroup0 = !g.useBindGroup0
 
 	return nil
 }
 
 // Release frees GPU resources
 func (g *GPUCompute) Release() {
-	if g.bindGroup != nil {
-		g.bindGroup.Release()
+	if g.bindGroup0 != nil {
+		g.bindGroup0.Release()
+	}
+	if g.bindGroup1 != nil {
+		g.bindGroup1.Release()
 	}
 	if g.bindGroupLayout != nil {
 		g.bindGroupLayout.Release()

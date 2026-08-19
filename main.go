@@ -51,7 +51,7 @@ func main() {
 		RandomWeight:     cfg.Boids.RandomWeight,
 		RenderRadius:     cfg.Boids.RenderRadius,
 		ColorMode:        boids.ColorModeDistance, // Start with distance-based coloring
-		UseGPU:           cfg.Boids.UseGPU,
+		UseGPU:           cfg.Rendering.UseGPU,
 	}
 	simulation := boids.NewSimulation(cfg.Boids.NumBoids, width, height, boidConfig)
 	defer simulation.Release() // Clean up GPU resources on exit
@@ -91,6 +91,9 @@ func main() {
 
 	// Delta time tracking
 	lastFrameTime := time.Now()
+
+	// Target frame time for 60 FPS
+	targetFrameTime := time.Second / time.Duration(cfg.Rendering.FPS)
 
 	// Animation loop
 	for {
@@ -175,6 +178,11 @@ func main() {
 				fps, cfg.Boids.NumBoids)
 		}
 
+		// Add GPU indicator
+		if simulation.Config.UseGPU && simulation.IsUsingGPU() {
+			fmt.Fprintf(&buffer, " | \033[35mGPU\033[0m")
+		}
+
 		// Add debug grid indicator if enabled
 		if simulation.Config.ShowSpatialGrid {
 			fmt.Fprintf(&buffer, " | \033[36mDEBUG: Grid ON\033[0m")
@@ -182,5 +190,11 @@ func main() {
 
 		// Write entire frame at once
 		fmt.Print(buffer.String())
+
+		// Frame rate limiting to prevent flickering
+		frameTime := time.Since(frameStart)
+		if frameTime < targetFrameTime {
+			time.Sleep(targetFrameTime - frameTime)
+		}
 	}
 }

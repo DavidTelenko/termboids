@@ -115,11 +115,9 @@ func NewSimulation(numBoids, width, height int, config Config) *Simulation {
 	if config.UseGPU {
 		gpuCompute, err := NewGPUCompute(numBoids)
 		if err != nil {
-			// Fallback to CPU if GPU initialization fails
-			println("Warning: GPU initialization failed, falling back to CPU:", err.Error())
+			// Silently fallback to CPU - don't interfere with terminal rendering
 		} else {
 			sim.gpuCompute = gpuCompute
-			println("GPU compute enabled")
 		}
 	}
 
@@ -145,25 +143,21 @@ func (s *Simulation) Update(deltaTime float64) {
 func (s *Simulation) updateGPU(deltaTime float64) {
 	// Upload boids to GPU
 	if err := s.gpuCompute.UploadBoids(s.Boids); err != nil {
-		println("Error uploading boids to GPU:", err.Error())
 		return
 	}
 
 	// Upload config
 	if err := s.gpuCompute.UploadConfig(s.Config, s.Width, s.Height, deltaTime); err != nil {
-		println("Error uploading config to GPU:", err.Error())
 		return
 	}
 
 	// Run compute shader
 	if err := s.gpuCompute.Compute(); err != nil {
-		println("Error running GPU compute:", err.Error())
 		return
 	}
 
 	// Download results
 	if err := s.gpuCompute.DownloadBoids(s.Boids); err != nil {
-		println("Error downloading boids from GPU:", err.Error())
 		return
 	}
 }
@@ -470,4 +464,9 @@ func (s *Simulation) Release() {
 		s.gpuCompute.Release()
 		s.gpuCompute = nil
 	}
+}
+
+// IsUsingGPU returns true if GPU compute is active
+func (s *Simulation) IsUsingGPU() bool {
+	return s.gpuCompute != nil
 }

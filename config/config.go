@@ -14,6 +14,11 @@ type KeyBindings struct {
 	Quit           string `toml:"quit"`
 }
 
+type RenderingConfig struct {
+	UseGPU bool `toml:"use_gpu"`
+	FPS    int  `toml:"fps"`
+}
+
 // BoidsConfig holds boid simulation parameters
 type BoidsConfig struct {
 	NumBoids         int     `toml:"num_boids"`
@@ -27,13 +32,14 @@ type BoidsConfig struct {
 	CohesionWeight   float64 `toml:"cohesion_weight"`
 	RandomWeight     float64 `toml:"random_weight"`
 	RenderRadius     int     `toml:"render_radius"`
-	UseGPU           bool    `toml:"use_gpu"`
 }
 
 // Config holds all application configuration
 type Config struct {
-	KeyBindings KeyBindings `toml:"keybindings"`
-	Boids       BoidsConfig `toml:"boids"`
+	KeyBindings KeyBindings     `toml:"keybindings"`
+	FPS         int             `toml:"fps"`
+	Boids       BoidsConfig     `toml:"boids"`
+	Rendering   RenderingConfig `toml:"rendering"`
 }
 
 // DefaultConfig returns the default configuration
@@ -56,7 +62,10 @@ func DefaultConfig() Config {
 			CohesionWeight:   1.0,
 			RandomWeight:     0.15,
 			RenderRadius:     1,
-			UseGPU:           true, // Enable GPU by default
+		},
+		Rendering: RenderingConfig{
+			UseGPU: true, // Enable GPU by default
+			FPS:    60,   // Enable GPU by default
 		},
 	}
 }
