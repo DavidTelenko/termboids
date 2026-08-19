@@ -59,6 +59,7 @@ func main() {
 	boidConfig := boids.Config{
 		BoidsConfig:     cfg.Boids,
 		RepellantConfig: cfg.System.Repellant,
+		AttractorConfig: cfg.System.Attractor,
 		ColorMode:       boids.ColorModeDistance, // Start with distance-based coloring
 		UseGPU:          cfg.System.Rendering.UseGPU,
 	}
@@ -212,8 +213,14 @@ func main() {
 			pixelX := float64(mouseEvent.X * 2)
 			pixelY := float64(mouseEvent.Y * 4)
 			
-			// Set repellant point with configured duration
-			simulation.SetRepellant(pixelX, pixelY, cfg.System.Repellant.Duration)
+			// Left click = repellant, Right click = attractor
+			if mouseEvent.Button == 0 {
+				// Left click - set repellant point with configured duration
+				simulation.SetRepellant(pixelX, pixelY, cfg.System.Repellant.Duration)
+			} else if mouseEvent.Button == 2 {
+				// Right click - set attractor point with configured duration
+				simulation.SetAttractor(pixelX, pixelY, cfg.System.Attractor.Duration)
+			}
 		}
 
 		// Calculate delta time in seconds
@@ -276,6 +283,11 @@ func main() {
 			// Add repellant indicator if active
 			if simulation.GetRepellant() != nil {
 				fmt.Fprintf(&buffer, " | \033[31m🔴 REPELLANT\033[0m")
+			}
+			
+			// Add attractor indicator if active
+			if simulation.GetAttractor() != nil {
+				fmt.Fprintf(&buffer, " | \033[32m🟢 ATTRACTOR\033[0m")
 			}
 		}
 

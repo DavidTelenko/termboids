@@ -9,8 +9,9 @@ import (
 
 // MouseEvent represents a mouse click event
 type MouseEvent struct {
-	X int
-	Y int
+	X      int
+	Y      int
+	Button int // 0 = left, 1 = middle, 2 = right
 }
 
 // Handler manages keyboard and mouse input in a non-blocking manner
@@ -100,9 +101,9 @@ func (h *Handler) listen() {
 					}
 				}
 				
-				// Only handle left click press (button 0, eventType 'M')
-				if button == 0 && eventType == 'M' {
-					h.mouseEvents <- MouseEvent{X: x - 1, Y: y - 1} // Convert to 0-based
+				// Handle left click (button 0) and right click (button 2), both on press (eventType 'M')
+				if (button == 0 || button == 2) && eventType == 'M' {
+					h.mouseEvents <- MouseEvent{X: x - 1, Y: y - 1, Button: button} // Convert to 0-based
 				}
 			} else if n == 1 {
 				// Handle single byte characters

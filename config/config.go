@@ -36,6 +36,13 @@ type RepellantConfig struct {
 	Duration float64 `toml:"duration"`
 }
 
+// AttractorConfig holds mouse attractor interaction settings
+type AttractorConfig struct {
+	Radius   float64 `toml:"radius"`
+	Strength float64 `toml:"strength"`
+	Duration float64 `toml:"duration"`
+}
+
 // BoidsConfig holds boid simulation parameters
 type BoidsConfig struct {
 	NumBoids         int     `toml:"num_boids"`
@@ -56,6 +63,7 @@ type SystemConfig struct {
 	KeyBindings KeyBindings     `toml:"keybindings"`
 	Rendering   RenderingConfig `toml:"rendering"`
 	Repellant   RepellantConfig `toml:"repellant"`
+	Attractor   AttractorConfig `toml:"attractor"`
 	Presets     []Preset        `toml:"presets"`
 }
 
@@ -82,6 +90,11 @@ func DefaultConfig() Config {
 				FPS:    60,
 			},
 			Repellant: RepellantConfig{
+				Radius:   200.0,
+				Strength: 10.0,
+				Duration: 2.0,
+			},
+			Attractor: AttractorConfig{
 				Radius:   200.0,
 				Strength: 10.0,
 				Duration: 2.0,

@@ -32,11 +32,12 @@ const (
 
 // Config holds simulation parameters
 type Config struct {
-	config.BoidsConfig     // Embed the shared config
-	config.RepellantConfig // Embed the repellant config
-	ColorMode              ColorMode
-	ShowSpatialGrid        bool
-	UseGPU                 bool
+	config.BoidsConfig              // Embed the shared config
+	RepellantConfig config.RepellantConfig // Repellant interaction config
+	AttractorConfig config.AttractorConfig // Attractor interaction config
+	ColorMode       ColorMode
+	ShowSpatialGrid bool
+	UseGPU          bool
 }
 
 // DefaultConfig returns the default boid simulation parameters
@@ -72,6 +73,8 @@ type Simulation struct {
 	gpuCompute       *GPUCompute
 	repellantPoint   *Vector2D // Active repellant point (nil if none)
 	repellantExpires float64   // Time when repellant expires (seconds since start)
+	attractorPoint   *Vector2D // Active attractor point (nil if none)
+	attractorExpires float64   // Time when attractor expires (seconds since start)
 	simulationTime   float64   // Total simulation time in seconds
 }
 
@@ -132,6 +135,11 @@ func (s *Simulation) Update(deltaTime float64) {
 		s.repellantPoint = nil
 	}
 	
+	// Check if attractor has expired
+	if s.attractorPoint != nil && s.simulationTime >= s.attractorExpires {
+		s.attractorPoint = nil
+	}
+	
 	// Use GPU compute if available
 	if s.gpuCompute != nil {
 		s.updateGPU(deltaTime)
@@ -148,8 +156,8 @@ func (s *Simulation) Update(deltaTime float64) {
 
 // updateGPU uses GPU compute shader for boid updates
 func (s *Simulation) updateGPU(deltaTime float64) {
-	// If repellant is active, fall back to CPU since GPU shader doesn't support it yet
-	if s.repellantPoint != nil {
+	// If repellant or attractor is active, fall back to CPU since GPU shader doesn't support them yet
+	if s.repellantPoint != nil || s.attractorPoint != nil {
 		s.updateCPU(deltaTime)
 		return
 	}
@@ -247,13 +255,28 @@ func (s *Simulation) updateCPU(deltaTime float64) {
 		if s.repellantPoint != nil {
 			dist := boid.Position.Distance(*s.repellantPoint)
 			
-			if dist < s.Config.Radius && dist > 0 {
+			if dist < s.Config.RepellantConfig.Radius && dist > 0 {
 				// Steer away from repellant point
 				diff := boid.Position.Sub(*s.repellantPoint)
 				// Stronger force when closer
-				strength := (s.Config.Radius - dist) / s.Config.Radius
+				strength := (s.Config.RepellantConfig.Radius - dist) / s.Config.RepellantConfig.Radius
 				// Apply configured repellant strength multiplier
-				diff = diff.Normalize().Scale(s.Config.MaxForce * strength * s.Config.Strength)
+				diff = diff.Normalize().Scale(s.Config.MaxForce * strength * s.Config.RepellantConfig.Strength)
+				acceleration = acceleration.Add(diff)
+			}
+		}
+		
+		// Add attractor force if active (this should dominate other forces)
+		if s.attractorPoint != nil {
+			dist := boid.Position.Distance(*s.attractorPoint)
+			
+			if dist < s.Config.AttractorConfig.Radius && dist > 0 {
+				// Steer towards attractor point
+				diff := s.attractorPoint.Sub(boid.Position)
+				// Stronger force when closer
+				strength := (s.Config.AttractorConfig.Radius - dist) / s.Config.AttractorConfig.Radius
+				// Apply configured attractor strength multiplier
+				diff = diff.Normalize().Scale(s.Config.MaxForce * strength * s.Config.AttractorConfig.Strength)
 				acceleration = acceleration.Add(diff)
 			}
 		}
@@ -505,4 +528,15 @@ func (s *Simulation) SetRepellant(x, y float64, duration float64) {
 // GetRepellant returns the current repellant point if active, nil otherwise
 func (s *Simulation) GetRepellant() *Vector2D {
 	return s.repellantPoint
+}
+
+// SetAttractor sets an attractor point that boids will move towards for the specified duration
+func (s *Simulation) SetAttractor(x, y float64, duration float64) {
+	s.attractorPoint = &Vector2D{X: x, Y: y}
+	s.attractorExpires = s.simulationTime + duration
+}
+
+// GetAttractor returns the current attractor point if active, nil otherwise
+func (s *Simulation) GetAttractor() *Vector2D {
+	return s.attractorPoint
 }

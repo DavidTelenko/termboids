@@ -6,7 +6,7 @@
 num_boids = 1000
 
 # Maximum speed (pixels per second)
-max_speed = 30.0
+max_speed = 50.0
 
 # Maximum force/acceleration (pixels per second squared)
 max_force = 80.0

@@ -11,15 +11,26 @@ fps = 60
 use_gpu = true
 
 [repellant]
-# Mouse interaction settings - click to create temporary repellant points
+# Mouse interaction settings - left click to create temporary repellant points
 # Radius of repellant effect in pixels
-radius = 20.0
+radius = 50.0
 
 # Force multiplier - higher values create stronger push away from click point
-strength = 10.0
+strength = 2.5
 
 # Duration in seconds that the repellant effect lasts
-duration = 0.3
+duration = 0.5
+
+[attractor]
+# Mouse interaction settings - right click to create temporary attractor points
+# Radius of attractor effect in pixels
+radius = 100.0
+
+# Force multiplier - higher values create stronger pull towards click point
+strength = 1.0
+
+# Duration in seconds that the attractor effect lasts
+duration = 2.0
 
 [keybindings]
 # Press 'c' or 'C' to cycle through color modes
@@ -53,9 +64,3 @@ path = "configs/fireflies.toml"
 key = "2"
 name = "Realistic"
 path = "configs/realistic.toml"
-
-# Add more presets below (up to 10 total, keys 1-0)
-# [[presets]]
-# key = "3"
-# name = "My Custom Config"
-# path = "configs/custom.toml"
