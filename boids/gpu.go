@@ -58,6 +58,9 @@ type GPUCompute struct {
 
 // NewGPUCompute creates a new GPU compute context for boid simulation
 func NewGPUCompute(numBoids int) (*GPUCompute, error) {
+	// Suppress wgpu warnings to avoid polluting terminal output
+	wgpu.SetLogLevel(wgpu.LogLevel_Error)
+	
 	// Initialize WebGPU instance
 	instance := wgpu.CreateInstance(nil)
 	if instance == nil {

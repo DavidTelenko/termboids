@@ -74,17 +74,17 @@ func main() {
 	}
 	defer inputHandler.Close()
 
-	// Hide cursor and clear screen once at startup
-	fmt.Print("\033[?25l\033[2J\033[H")
+	// Switch to alternate screen buffer, hide cursor and clear screen once at startup
+	fmt.Print("\033[?1049h\033[?25l\033[2J\033[H")
 
-	// Setup signal handler to restore cursor on exit
+	// Setup signal handler to restore terminal on exit
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-sigChan
 		simulation.Release()
 		inputHandler.Close()
-		fmt.Print("\033[?25h") // Show cursor
+		fmt.Print("\033[?25h\033[?1049l") // Show cursor and restore normal screen buffer
 		os.Exit(0)
 	}()
 
@@ -116,7 +116,7 @@ func main() {
 			if keyStr == strings.ToLower(cfg.KeyBindings.Quit) {
 				simulation.Release()
 				inputHandler.Close()
-				fmt.Print("\033[?25h") // Show cursor
+				fmt.Print("\033[?25h\033[?1049l") // Show cursor and restore normal screen buffer
 				os.Exit(0)
 			}
 
